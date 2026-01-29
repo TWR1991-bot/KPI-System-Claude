@@ -1,0 +1,2225 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>員工考核系統</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .user-info {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            text-align: right;
+        }
+
+        .user-name {
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        .btn-secondary {
+            background: #a0aec0;
+            color: white;
+        }
+
+        .btn-disabled {
+            background: #e2e8f0;
+            color: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        .login-container {
+            padding: 60px;
+            max-width: 500px;
+            margin: 100px auto;
+        }
+
+        .login-container h2 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4a5568;
+            font-weight: bold;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #cbd5e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s;
+            background-color: #ffffff;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group input:hover,
+        .form-group select:hover,
+        .form-group textarea:hover {
+            border-color: #a0aec0;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 30px;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 1em;
+            color: #718096;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+            font-weight: bold;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .employee-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .employee-card {
+            padding: 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .employee-card:hover {
+            border-color: #667eea;
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .employee-card.disabled {
+            background: #f7fafc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .employee-card.submitted {
+            border-color: #48bb78;
+            background: #f0fff4;
+        }
+
+        .evaluation-form {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .category-section {
+            margin-bottom: 40px;
+            padding: 25px;
+            background: #f7fafc;
+            border-radius: 10px;
+        }
+
+        .category-title {
+            font-size: 1.5em;
+            color: #667eea;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .item-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .item-name {
+            font-weight: bold;
+            color: #2d3748;
+        }
+
+        .score-input {
+            text-align: center;
+        }
+
+        .score-input input {
+            width: 80px;
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table th,
+        table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        table th {
+            background: #f7fafc;
+            color: #4a5568;
+            font-weight: bold;
+        }
+
+        table tr:hover {
+            background: #f7fafc;
+        }
+
+        .score-positive {
+            color: #48bb78;
+            font-weight: bold;
+        }
+
+        .score-negative-light {
+            color: #ed8936;
+            font-weight: bold;
+        }
+
+        .score-negative-heavy {
+            color: #f56565;
+            font-weight: bold;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 2em;
+            cursor: pointer;
+            color: #a0aec0;
+        }
+
+        .close-modal:hover {
+            color: #4a5568;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #f0fff4;
+            border: 1px solid #48bb78;
+            color: #22543d;
+        }
+
+        .alert-error {
+            background: #fff5f5;
+            border: 1px solid #f56565;
+            color: #742a2a;
+        }
+
+        .alert-info {
+            background: #ebf8ff;
+            border: 1px solid #4299e1;
+            color: #2c5282;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #a0aec0;
+        }
+
+        .chart-container {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .chart-title {
+            font-size: 1.3em;
+            color: #2d3748;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyCz__a2mqHuKtI8-magMdCG_35mHITa-To",
+            authDomain: "kpi-system-76380260.firebaseapp.com",
+            projectId: "kpi-system-76380260",
+            storageBucket: "kpi-system-76380260.firebasestorage.app",
+            messagingSenderId: "243808614082",
+            appId: "1:243808614082:web:7cfc400d9b2d4c3379ad5b"
+        };
+
+        // 初始化 Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // 全域狀態
+        let currentUser = null;
+        let currentPage = 'login';
+
+        // 初始化系統
+        async function initSystem() {
+            // 檢查是否有預設管理員帳號
+            const adminDoc = await getDoc(doc(db, 'users', 'Admin01'));
+            if (!adminDoc.exists()) {
+                // 建立預設管理員帳號
+                await setDoc(doc(db, 'users', 'Admin01'), {
+                    userId: 'Admin01',
+                    name: '系統管理員',
+                    password: '76380260',
+                    level: 'L5',
+                    role: 'admin',
+                    evaluators: []
+                });
+            }
+            renderLogin();
+        }
+
+        // 渲染登入頁面
+        function renderLogin() {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="container">
+                    <div class="header">
+                        <h1>員工考核系統</h1>
+                    </div>
+                    <div class="login-container">
+                        <h2>系統登入</h2>
+                        <div id="loginMessage"></div>
+                        <form id="loginForm">
+                            <div class="form-group">
+                                <label>帳號</label>
+                                <select id="loginUserId" required>
+                                    <option value="">請選擇帳號</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>密碼</label>
+                                <input type="password" id="loginPassword" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="width: 100%;">登入</button>
+                        </form>
+                    </div>
+                </div>
+            `;
+
+            loadUsers();
+
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+        }
+
+        // 載入使用者列表
+        async function loadUsers() {
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const select = document.getElementById('loginUserId');
+            
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                // 只顯示可以登入的使用者(排除一般職員)
+                if (user.role !== 'employee') {
+                    const option = document.createElement('option');
+                    option.value = user.userId;
+                    option.textContent = `${user.name} (${user.userId})`;
+                    select.appendChild(option);
+                }
+            });
+        }
+
+        // 處理登入
+        async function handleLogin(e) {
+            e.preventDefault();
+            const userId = document.getElementById('loginUserId').value;
+            const password = document.getElementById('loginPassword').value;
+
+            const userDoc = await getDoc(doc(db, 'users', userId));
+            
+            if (!userDoc.exists()) {
+                showMessage('loginMessage', '帳號不存在', 'error');
+                return;
+            }
+
+            const userData = userDoc.data();
+            
+            if (userData.password !== password) {
+                showMessage('loginMessage', '密碼錯誤', 'error');
+                return;
+            }
+
+            currentUser = userData;
+            
+            if (userData.role === 'admin') {
+                renderAdminDashboard();
+            } else {
+                renderEvaluatorDashboard();
+            }
+        }
+
+        // 渲染評分者儀表板
+        function renderEvaluatorDashboard() {
+            const app = document.getElementById('app');
+            const currentMonth = new Date().toISOString().slice(0, 7).replace('-', '');
+            
+            app.innerHTML = `
+                <div class="container">
+                    <div class="header">
+                        <h1>評分系統</h1>
+                        <div class="user-info">
+                            <div class="user-name">${currentUser.name}</div>
+                            ${currentUser.role === 'manager' ? '<button class="btn btn-secondary" onclick="window.showAdminPanel()">管理後台</button>' : ''}
+                            <button class="btn btn-secondary" onclick="window.logout()">登出</button>
+                        </div>
+                    </div>
+                    <div class="content">
+                        <h2>本月評核人員 (${currentMonth.slice(0,4)}年${currentMonth.slice(4)}月)</h2>
+                        <div id="employeeList" class="employee-grid">
+                            <div class="loading">載入中...</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            loadEvaluationList();
+        }
+
+        // 載入評核人員列表
+        async function loadEvaluationList() {
+            const currentMonth = new Date().toISOString().slice(0, 7).replace('-', '');
+            const employeeListDiv = document.getElementById('employeeList');
+            
+            // 取得所有使用者
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const employees = [];
+            
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                // 檢查當前使用者是否是這個員工的評核者
+                if (user.evaluators && user.evaluators.includes(currentUser.userId)) {
+                    // 檢查是否需要本月評核
+                    const needsEvaluation = checkNeedsEvaluation(user.level, currentMonth);
+                    if (needsEvaluation) {
+                        employees.push(user);
+                    }
+                }
+            });
+
+            if (employees.length === 0) {
+                employeeListDiv.innerHTML = '<p style="text-align: center; color: #a0aec0;">本月無需評核人員</p>';
+                return;
+            }
+
+            let html = '';
+            for (const employee of employees) {
+                const evaluationId = `${employee.userId}_${currentUser.userId}_${currentMonth}`;
+                const evalDoc = await getDoc(doc(db, 'evaluations', evaluationId));
+                const status = evalDoc.exists() ? evalDoc.data().status : 'pending';
+                
+                const cardClass = status === 'submitted' ? 'employee-card submitted' : 'employee-card';
+                const statusText = status === 'submitted' ? '✓ 已送出' : '待評分';
+                
+                html += `
+                    <div class="${cardClass}" onclick="window.openEvaluation('${employee.userId}', '${status}')">
+                        <h3>${employee.name}</h3>
+                        <p>${employee.level}</p>
+                        <p style="margin-top: 10px; color: ${status === 'submitted' ? '#48bb78' : '#ed8936'};">
+                            ${statusText}
+                        </p>
+                    </div>
+                `;
+            }
+            
+            employeeListDiv.innerHTML = html;
+        }
+
+        // 檢查是否需要評核
+        function checkNeedsEvaluation(level, month) {
+            // L5 或無職等不需評核
+            if (!level || level === 'L5' || level === '') {
+                return false;
+            }
+            
+            const monthNum = parseInt(month.slice(4));
+            
+            if (level === 'L1') {
+                return true; // 每月評核
+            } else if (['L2', 'L3', 'L4'].includes(level)) {
+                return [3, 5, 9, 12].includes(monthNum); // 季評核(配合三節獎金)
+            }
+            
+            return false;
+        }
+
+        // 開啟評分表
+        window.openEvaluation = async function(employeeId, status) {
+            const currentMonth = new Date().toISOString().slice(0, 7).replace('-', '');
+            const evaluationId = `${employeeId}_${currentUser.userId}_${currentMonth}`;
+            
+            // 取得員工資料
+            const employeeDoc = await getDoc(doc(db, 'users', employeeId));
+            const employee = employeeDoc.data();
+            
+            // 取得評分表範本
+            const templateDoc = await getDoc(doc(db, 'evaluation_templates', `${employeeId}_${currentMonth}`));
+            
+            if (!templateDoc.exists()) {
+                alert('此員工尚未設定評分表範本，請聯絡管理員');
+                return;
+            }
+            
+            const template = templateDoc.data();
+            
+            // 取得已儲存的評分
+            const evalDoc = await getDoc(doc(db, 'evaluations', evaluationId));
+            const savedScores = evalDoc.exists() ? evalDoc.data().scores : {};
+            const savedComment = evalDoc.exists() ? evalDoc.data().comment : '';
+            const isSubmitted = status === 'submitted';
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <span class="close-modal" onclick="this.closest('.modal').remove()">&times;</span>
+                    <h2>${employee.name} - ${currentMonth.slice(0,4)}年${currentMonth.slice(4)}月評核</h2>
+                    <div id="evaluationMessage"></div>
+                    <form id="evaluationForm">
+                        ${renderEvaluationForm(template, savedScores, isSubmitted)}
+                        
+                        <div class="form-group">
+                            <label>總評語</label>
+                            <textarea id="comment" rows="4" ${isSubmitted ? 'disabled' : ''}>${savedComment}</textarea>
+                        </div>
+                        
+                        <div style="text-align: right; margin-top: 20px;">
+                            ${!isSubmitted ? `
+                                <button type="button" class="btn btn-secondary" onclick="window.saveEvaluationDraft('${evaluationId}', '${employeeId}')">暫存</button>
+                                <button type="button" class="btn btn-success" onclick="window.submitEvaluation('${evaluationId}', '${employeeId}')">確認送出</button>
+                            ` : `
+                                <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">關閉</button>
+                            `}
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        };
+
+        // 渲染評分表單
+        function renderEvaluationForm(template, savedScores, isDisabled) {
+            let html = '';
+            
+            // 工作表現
+            if (template.workPerformance) {
+                html += '<div class="category-section"><h3 class="category-title">工作表現</h3>';
+                template.workPerformance.forEach(category => {
+                    html += `<h4 style="margin: 15px 0 10px 0;">${category.name} (佔比: ${category.weight}%)</h4>`;
+                    category.items.forEach(item => {
+                        const itemKey = `work_${category.name}_${item}`;
+                        const score1 = savedScores[`${itemKey}_1`] || '';
+                        const score2 = savedScores[`${itemKey}_2`] || '';
+                        
+                        html += `
+                            <div class="item-row">
+                                <div class="item-name">${item}</div>
+                                <div class="score-input">
+                                    <label>執行力與準時性</label>
+                                    <input type="number" name="${itemKey}_1" min="0" max="5" step="0.1" value="${score1}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
+                                </div>
+                                <div class="score-input">
+                                    <label>錯誤率與專業性</label>
+                                    <input type="number" name="${itemKey}_2" min="0" max="5" step="0.1" value="${score2}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
+                                </div>
+                            </div>
+                        `;
+                    });
+                });
+                html += '</div>';
+            }
+            
+            // 綜合表現
+            if (template.comprehensivePerformance) {
+                html += '<div class="category-section"><h3 class="category-title">綜合表現</h3>';
+                template.comprehensivePerformance.forEach(category => {
+                    html += `<h4 style="margin: 15px 0 10px 0;">${category.name} (佔比: ${category.weight}%)</h4>`;
+                    category.items.forEach(item => {
+                        const itemKey = `comp_${category.name}_${item}`;
+                        const score1 = savedScores[`${itemKey}_1`] || '';
+                        const score2 = savedScores[`${itemKey}_2`] || '';
+                        
+                        html += `
+                            <div class="item-row">
+                                <div class="item-name">${item}</div>
+                                <div class="score-input">
+                                    <label>執行力與準時性</label>
+                                    <input type="number" name="${itemKey}_1" min="0" max="5" step="0.1" value="${score1}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
+                                </div>
+                                <div class="score-input">
+                                    <label>錯誤率與專業性</label>
+                                    <input type="number" name="${itemKey}_2" min="0" max="5" step="0.1" value="${score2}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
+                                </div>
+                            </div>
+                        `;
+                    });
+                });
+                html += '</div>';
+            }
+            
+            // 個人學習
+            if (template.personalLearning) {
+                html += '<div class="category-section"><h3 class="category-title">個人學習</h3>';
+                template.personalLearning.items.forEach(item => {
+                    const itemKey = `learn_${item}`;
+                    const score1 = savedScores[`${itemKey}_1`] || '';
+                    const score2 = savedScores[`${itemKey}_2`] || '';
+                    
+                    html += `
+                        <div class="item-row">
+                            <div class="item-name">${item}</div>
+                            <div class="score-input">
+                                <label>執行力與準時性</label>
+                                <input type="number" name="${itemKey}_1" min="0" max="5" step="0.1" value="${score1}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
+                            </div>
+                            <div class="score-input">
+                                <label>錯誤率與專業性</label>
+                                <input type="number" name="${itemKey}_2" min="0" max="5" step="0.1" value="${score2}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            return html;
+        }
+
+        // 儲存評分草稿
+        window.saveEvaluationDraft = async function(evaluationId, employeeId) {
+            // 驗證分數
+            if (!validateAllScores()) {
+                alert('評分不可超過 5 分!請檢查所有評分欄位。');
+                return;
+            }
+            
+            const currentMonth = new Date().toISOString().slice(0, 7).replace('-', '');
+            const form = document.getElementById('evaluationForm');
+            const formData = new FormData(form);
+            const scores = {};
+            
+            for (let [key, value] of formData.entries()) {
+                if (key !== 'comment') {
+                    scores[key] = value;
+                }
+            }
+            
+            const comment = document.getElementById('comment').value;
+            
+            await setDoc(doc(db, 'evaluations', evaluationId), {
+                evaluationId: evaluationId,
+                evaluateeId: employeeId,
+                evaluatorId: currentUser.userId,
+                period: currentMonth,
+                status: 'draft',
+                scores: scores,
+                comment: comment,
+                updatedAt: new Date().toISOString()
+            });
+            
+            showMessage('evaluationMessage', '已儲存草稿', 'success');
+        };
+
+        // 送出評分
+        window.submitEvaluation = async function(evaluationId, employeeId) {
+            // 驗證分數
+            if (!validateAllScores()) {
+                alert('評分不可超過 5 分!請檢查所有評分欄位。');
+                return;
+            }
+            
+            if (!confirm('確定要送出評分嗎?送出後將無法修改!')) {
+                return;
+            }
+            
+            const currentMonth = new Date().toISOString().slice(0, 7).replace('-', '');
+            const form = document.getElementById('evaluationForm');
+            const formData = new FormData(form);
+            const scores = {};
+            
+            for (let [key, value] of formData.entries()) {
+                if (key !== 'comment') {
+                    scores[key] = value;
+                }
+            }
+            
+            const comment = document.getElementById('comment').value;
+            
+            await setDoc(doc(db, 'evaluations', evaluationId), {
+                evaluationId: evaluationId,
+                evaluateeId: employeeId,
+                evaluatorId: currentUser.userId,
+                period: currentMonth,
+                status: 'submitted',
+                scores: scores,
+                comment: comment,
+                submittedAt: new Date().toISOString()
+            });
+            
+            alert('評分已送出!');
+            document.querySelector('.modal').remove();
+            loadEvaluationList();
+        };
+
+        // 驗證所有評分不超過5分
+        function validateAllScores() {
+            const form = document.getElementById('evaluationForm');
+            if (!form) return true;
+            
+            const inputs = form.querySelectorAll('input[type="number"]');
+            for (let input of inputs) {
+                const value = parseFloat(input.value);
+                if (!isNaN(value) && value > 5) {
+                    input.style.borderColor = '#f56565';
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // 即時驗證單一評分欄位
+        window.validateScore = function(input) {
+            const value = parseFloat(input.value);
+            if (!isNaN(value) && value > 5) {
+                input.style.borderColor = '#f56565';
+                input.style.backgroundColor = '#fff5f5';
+            } else {
+                input.style.borderColor = '#cbd5e0';
+                input.style.backgroundColor = '#ffffff';
+            }
+        };
+
+        // 渲染管理員儀表板
+        function renderAdminDashboard() {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="container">
+                    <div class="header">
+                        <h1>管理後台</h1>
+                        <div class="user-info">
+                            <div class="user-name">${currentUser.name}</div>
+                            ${currentUser.role === 'manager' ? '<button class="btn btn-secondary" onclick="window.backToEvaluation()">返回評分頁面</button>' : ''}
+                            <button class="btn btn-secondary" onclick="window.logout()">登出</button>
+                        </div>
+                    </div>
+                    <div class="content">
+                        <div class="tabs">
+                            <button class="tab active" onclick="window.switchTab(0)">人員管理</button>
+                            <button class="tab" onclick="window.switchTab(1)">考核統計表</button>
+                            <button class="tab" onclick="window.switchTab(2)">職等比對圖表</button>
+                            <button class="tab" onclick="window.switchTab(3)">編輯考核表</button>
+                        </div>
+                        
+                        <div id="tab0" class="tab-content active">
+                            ${renderUserManagement()}
+                        </div>
+                        <div id="tab1" class="tab-content">
+                            <h2>考核統計表</h2>
+                            <div class="form-group" style="max-width: 400px;">
+                                <label>選擇月份</label>
+                                <input type="month" id="statsMonth" onchange="window.loadStatistics()">
+                            </div>
+                            <div style="margin-bottom: 20px;">
+                                <button class="btn btn-primary" onclick="window.downloadCSV()">📥 下載評分明細 CSV</button>
+                            </div>
+                            <div id="statisticsContainer">
+                                <div class="loading">載入中...</div>
+                            </div>
+                        </div>
+                        <div id="tab2" class="tab-content">
+                            <h2>職等比對圖表</h2>
+                            <div class="form-group" style="max-width: 400px;">
+                                <label>選擇年度</label>
+                                <input type="number" id="chartYear" min="2020" max="2099" onchange="window.loadCharts()">
+                            </div>
+                            <div id="chartsContainer">
+                                <div class="loading">載入中...</div>
+                            </div>
+                        </div>
+                        <div id="tab3" class="tab-content">
+                            ${renderTemplateEditor()}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            loadUsersList();
+            loadTemplateEmployees();
+            
+            // 設定當前月份並自動載入統計資料
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            const statsMonthInput = document.getElementById('statsMonth');
+            if (statsMonthInput) {
+                statsMonthInput.value = currentMonth;
+                window.loadStatistics();
+            }
+            
+            // 設定當前年度並自動載入圖表
+            const currentYear = new Date().getFullYear();
+            const chartYearInput = document.getElementById('chartYear');
+            if (chartYearInput) {
+                chartYearInput.value = currentYear;
+                window.loadCharts();
+            }
+        }
+
+        // 切換分頁
+        window.switchTab = function(index) {
+            document.querySelectorAll('.tab').forEach((tab, i) => {
+                tab.classList.toggle('active', i === index);
+            });
+            document.querySelectorAll('.tab-content').forEach((content, i) => {
+                content.classList.toggle('active', i === index);
+            });
+        };
+
+        // 渲染使用者管理
+        function renderUserManagement() {
+            return `
+                <h2>人員管理</h2>
+                <button class="btn btn-primary" onclick="window.showAddUserModal()">新增人員</button>
+                <div id="usersList" style="margin-top: 20px;">
+                    <div class="loading">載入中...</div>
+                </div>
+            `;
+        }
+
+        // 載入使用者列表
+        async function loadUsersList() {
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const usersListDiv = document.getElementById('usersList');
+            
+            // 建立使用者對照表
+            const usersMap = {};
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                usersMap[user.userId] = user.name;
+            });
+            
+            let html = '<table><thead><tr><th>帳號</th><th>姓名</th><th>職等</th><th>角色</th><th>所屬主管</th><th>操作</th></tr></thead><tbody>';
+            
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                const roleText = user.role === 'admin' ? '系統管理員' : 
+                                user.role === 'manager' ? '管理職主管' : 
+                                user.role === 'staff' ? '一般主管' : '一般職員';
+                const levelText = user.level || '無';
+                
+                // 取得所屬主管名稱
+                let evaluatorsText = '無';
+                if (user.evaluators && user.evaluators.length > 0) {
+                    evaluatorsText = user.evaluators.map(id => usersMap[id] || id).join(', ');
+                }
+                
+                html += `
+                    <tr>
+                        <td>${user.userId}</td>
+                        <td>${user.name}</td>
+                        <td>${levelText}</td>
+                        <td>${roleText}</td>
+                        <td>${evaluatorsText}</td>
+                        <td>
+                            <button class="btn btn-secondary" onclick="window.editUser('${user.userId}')">編輯</button>
+                            ${user.userId !== 'Admin01' ? `<button class="btn btn-danger" onclick="window.deleteUser('${user.userId}')">刪除</button>` : ''}
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            usersListDiv.innerHTML = html;
+        }
+
+        // 顯示新增使用者對話框
+        window.showAddUserModal = async function() {
+            // 載入所有主管列表
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            let managersOptions = '';
+            
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                if (user.role === 'manager' || user.role === 'staff') {
+                    managersOptions += `<option value="${user.userId}">${user.name} (${user.userId})</option>`;
+                }
+            });
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <span class="close-modal" onclick="this.closest('.modal').remove()">&times;</span>
+                    <h2>新增人員</h2>
+                    <div id="addUserMessage"></div>
+                    <form id="addUserForm">
+                        <div class="form-group">
+                            <label>帳號 (英文或數字)</label>
+                            <input type="text" id="newUserId" required>
+                        </div>
+                        <div class="form-group">
+                            <label>姓名</label>
+                            <input type="text" id="newUserName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>密碼</label>
+                            <input type="password" id="newUserPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label>職等</label>
+                            <select id="newUserLevel">
+                                <option value="">無職等(不需評核)</option>
+                                <option value="L1">L1 (每月評核)</option>
+                                <option value="L2">L2 (季評核)</option>
+                                <option value="L3">L3 (季評核)</option>
+                                <option value="L4">L4 (季評核)</option>
+                                <option value="L5">L5 (不需評核)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>角色</label>
+                            <select id="newUserRole" required>
+                                <option value="employee">一般職員 (無法登入系統)</option>
+                                <option value="staff">一般主管 (可評分)</option>
+                                <option value="manager">管理職主管 (可評分+可查看後台)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>所屬主管 (可複選,按住 Ctrl 或 Command 鍵多選)</label>
+                            <select id="newUserEvaluators" multiple size="6" style="height: auto;">
+                                ${managersOptions}
+                            </select>
+                            <small style="color: #a0aec0; display: block; margin-top: 5px;">
+                                如果此人員需要接受評核,請選擇評核主管<br>
+                                按住 Ctrl (Windows) 或 Command (Mac) 可多選
+                            </small>
+                        </div>
+                        <button type="submit" class="btn btn-primary">新增</button>
+                    </form>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const userId = document.getElementById('newUserId').value;
+                const name = document.getElementById('newUserName').value;
+                const password = document.getElementById('newUserPassword').value;
+                const level = document.getElementById('newUserLevel').value;
+                const role = document.getElementById('newUserRole').value;
+                
+                // 取得所選的主管
+                const evaluatorsSelect = document.getElementById('newUserEvaluators');
+                const evaluators = Array.from(evaluatorsSelect.selectedOptions).map(option => option.value);
+                
+                // 檢查帳號是否已存在
+                const userDoc = await getDoc(doc(db, 'users', userId));
+                if (userDoc.exists()) {
+                    showMessage('addUserMessage', '帳號已存在', 'error');
+                    return;
+                }
+                
+                await setDoc(doc(db, 'users', userId), {
+                    userId: userId,
+                    name: name,
+                    password: password,
+                    level: level || 'L5',
+                    role: role,
+                    evaluators: evaluators
+                });
+                
+                alert('人員新增成功!');
+                modal.remove();
+                loadUsersList();
+            });
+        };
+
+        // 渲染評分表編輯器
+        function renderTemplateEditor() {
+            const isAdmin = currentUser.role === 'admin';
+            const modeText = isAdmin ? '編輯' : '查看';
+            
+            return `
+                <h2>${modeText}員工考核表</h2>
+                ${!isAdmin ? '<p style="color: #ed8936; background: #fffaf0; padding: 10px; border-radius: 5px; margin-bottom: 20px;">⚠️ 您只有查看權限,無法編輯考核表範本</p>' : ''}
+                <div class="form-group">
+                    <label>選擇員工</label>
+                    <select id="templateEmployee" onchange="window.loadTemplate()">
+                        <option value="">請選擇員工</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>選擇月份</label>
+                    <input type="month" id="templateMonth" onchange="window.loadTemplate()">
+                </div>
+                ${isAdmin ? `
+                <div style="margin-bottom: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="window.copyPreviousMonthTemplate()">📋 複製上月範本</button>
+                    <button type="button" class="btn btn-danger" onclick="window.clearTemplate()">🗑️ 清空範本</button>
+                </div>
+                ` : ''}
+                <div id="templateEditor">
+                    <p style="color: #a0aec0;">請選擇員工和月份</p>
+                </div>
+            `;
+        }
+
+        // 載入評分表範本員工列表
+        async function loadTemplateEmployees() {
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const select = document.getElementById('templateEmployee');
+            
+            // 清空現有選項
+            select.innerHTML = '<option value="">請選擇員工</option>';
+            
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                // 只顯示需要評核的員工(有職等且不是L5)
+                if (user.level && user.level !== 'L5' && user.level !== '') {
+                    const option = document.createElement('option');
+                    option.value = user.userId;
+                    option.textContent = `${user.name} (${user.userId}) - ${user.level}`;
+                    select.appendChild(option);
+                }
+            });
+        }
+
+        // 載入評分表範本
+        window.loadTemplate = async function() {
+            const employeeId = document.getElementById('templateEmployee').value;
+            const month = document.getElementById('templateMonth').value;
+            
+            if (!employeeId || !month) {
+                return;
+            }
+            
+            const period = month.replace('-', '');
+            const templateId = `${employeeId}_${period}`;
+            const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
+            
+            const editorDiv = document.getElementById('templateEditor');
+            
+            if (templateDoc.exists()) {
+                // 載入現有範本
+                const template = templateDoc.data();
+                renderTemplateForm(template, employeeId, period);
+            } else {
+                // 建立新範本
+                renderTemplateForm({
+                    workPerformance: [],
+                    comprehensivePerformance: [],
+                    personalLearning: { weight: 0, items: [] }
+                }, employeeId, period);
+            }
+        };
+
+        // 渲染範本編輯表單
+        function renderTemplateForm(template, employeeId, period) {
+            const editorDiv = document.getElementById('templateEditor');
+            const isAdmin = currentUser.role === 'admin';
+            const disabled = !isAdmin ? 'disabled' : '';
+            
+            editorDiv.innerHTML = `
+                <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin-top: 20px;">
+                    <h3>工作表現</h3>
+                    <div id="workPerformanceCategories"></div>
+                    ${isAdmin ? '<button type="button" class="btn btn-primary" onclick="window.addWorkCategory()">新增大類</button>' : ''}
+                    
+                    <h3 style="margin-top: 30px;">綜合表現</h3>
+                    <div id="comprehensivePerformanceCategories"></div>
+                    ${isAdmin ? '<button type="button" class="btn btn-primary" onclick="window.addCompCategory()">新增大類</button>' : ''}
+                    
+                    <h3 style="margin-top: 30px;">個人學習</h3>
+                    <div class="form-group">
+                        <label>佔比 (%)</label>
+                        <input type="number" id="learningWeight" value="${template.personalLearning.weight || 0}" min="0" max="100" ${disabled}>
+                    </div>
+                    <div id="learningItems"></div>
+                    ${isAdmin ? '<button type="button" class="btn btn-primary" onclick="window.addLearningItem()">新增學習項目</button>' : ''}
+                    
+                    ${isAdmin ? `
+                    <div style="margin-top: 30px; text-align: right;">
+                        <button type="button" class="btn btn-success" onclick="window.saveTemplate('${employeeId}', '${period}')">儲存範本</button>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            // 儲存當前範本到全域變數
+            window.currentTemplate = template;
+            
+            // 渲染現有資料
+            renderWorkCategories();
+            renderCompCategories();
+            renderLearningItems();
+        }
+
+        // 渲染工作表現大類
+        function renderWorkCategories() {
+            const container = document.getElementById('workPerformanceCategories');
+            const categories = window.currentTemplate.workPerformance || [];
+            const isAdmin = currentUser.role === 'admin';
+            const disabled = !isAdmin ? 'disabled' : '';
+            
+            let html = '';
+            categories.forEach((cat, index) => {
+                html += `
+                    <div style="background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <input type="text" value="${cat.name}" onchange="window.updateWorkCategoryName(${index}, this.value)" 
+                                   style="flex: 1; margin-right: 10px; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px;" ${disabled}>
+                            <input type="number" value="${cat.weight}" onchange="window.updateWorkCategoryWeight(${index}, this.value)" 
+                                   placeholder="佔比%" min="0" max="100" style="width: 80px; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px;" ${disabled}>
+                            ${isAdmin ? `<button type="button" class="btn btn-danger" onclick="window.removeWorkCategory(${index})" style="margin-left: 10px;">刪除大類</button>` : ''}
+                        </div>
+                        <div>
+                            ${cat.items.map((item, itemIndex) => `
+                                <div style="display: flex; margin-bottom: 5px;">
+                                    <input type="text" value="${item}" onchange="window.updateWorkItem(${index}, ${itemIndex}, this.value)"
+                                           style="flex: 1; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px; margin-right: 5px;" ${disabled}>
+                                    ${isAdmin ? `<button type="button" class="btn btn-danger" onclick="window.removeWorkItem(${index}, ${itemIndex})">刪除</button>` : ''}
+                                </div>
+                            `).join('')}
+                            ${isAdmin ? `<button type="button" class="btn btn-secondary" onclick="window.addWorkItem(${index})">新增小項</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        // 渲染綜合表現大類
+        function renderCompCategories() {
+            const container = document.getElementById('comprehensivePerformanceCategories');
+            const categories = window.currentTemplate.comprehensivePerformance || [];
+            const isAdmin = currentUser.role === 'admin';
+            const disabled = !isAdmin ? 'disabled' : '';
+            
+            let html = '';
+            categories.forEach((cat, index) => {
+                html += `
+                    <div style="background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <input type="text" value="${cat.name}" onchange="window.updateCompCategoryName(${index}, this.value)" 
+                                   style="flex: 1; margin-right: 10px; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px;" ${disabled}>
+                            <input type="number" value="${cat.weight}" onchange="window.updateCompCategoryWeight(${index}, this.value)" 
+                                   placeholder="佔比%" min="0" max="100" style="width: 80px; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px;" ${disabled}>
+                            ${isAdmin ? `<button type="button" class="btn btn-danger" onclick="window.removeCompCategory(${index})" style="margin-left: 10px;">刪除大類</button>` : ''}
+                        </div>
+                        <div>
+                            ${cat.items.map((item, itemIndex) => `
+                                <div style="display: flex; margin-bottom: 5px;">
+                                    <input type="text" value="${item}" onchange="window.updateCompItem(${index}, ${itemIndex}, this.value)"
+                                           style="flex: 1; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px; margin-right: 5px;" ${disabled}>
+                                    ${isAdmin ? `<button type="button" class="btn btn-danger" onclick="window.removeCompItem(${index}, ${itemIndex})">刪除</button>` : ''}
+                                </div>
+                            `).join('')}
+                            ${isAdmin ? `<button type="button" class="btn btn-secondary" onclick="window.addCompItem(${index})">新增小項</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        // 渲染個人學習項目
+        function renderLearningItems() {
+            const container = document.getElementById('learningItems');
+            const items = window.currentTemplate.personalLearning.items || [];
+            const isAdmin = currentUser.role === 'admin';
+            const disabled = !isAdmin ? 'disabled' : '';
+            
+            let html = '';
+            items.forEach((item, index) => {
+                html += `
+                    <div style="display: flex; margin-bottom: 10px;">
+                        <input type="text" value="${item}" onchange="window.updateLearningItem(${index}, this.value)"
+                               style="flex: 1; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px; margin-right: 5px;" ${disabled}>
+                        ${isAdmin ? `<button type="button" class="btn btn-danger" onclick="window.removeLearningItem(${index})">刪除</button>` : ''}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        // 工作表現相關函數
+        window.addWorkCategory = function() {
+            if (!window.currentTemplate.workPerformance) {
+                window.currentTemplate.workPerformance = [];
+            }
+            window.currentTemplate.workPerformance.push({ name: '新大類', weight: 0, items: [] });
+            renderWorkCategories();
+        };
+
+        window.removeWorkCategory = function(index) {
+            if (confirm('確定要刪除此大類嗎?')) {
+                window.currentTemplate.workPerformance.splice(index, 1);
+                renderWorkCategories();
+            }
+        };
+
+        window.updateWorkCategoryName = function(index, value) {
+            window.currentTemplate.workPerformance[index].name = value;
+        };
+
+        window.updateWorkCategoryWeight = function(index, value) {
+            window.currentTemplate.workPerformance[index].weight = parseFloat(value) || 0;
+        };
+
+        window.addWorkItem = function(catIndex) {
+            window.currentTemplate.workPerformance[catIndex].items.push('新小項');
+            renderWorkCategories();
+        };
+
+        window.removeWorkItem = function(catIndex, itemIndex) {
+            window.currentTemplate.workPerformance[catIndex].items.splice(itemIndex, 1);
+            renderWorkCategories();
+        };
+
+        window.updateWorkItem = function(catIndex, itemIndex, value) {
+            window.currentTemplate.workPerformance[catIndex].items[itemIndex] = value;
+        };
+
+        // 綜合表現相關函數
+        window.addCompCategory = function() {
+            if (!window.currentTemplate.comprehensivePerformance) {
+                window.currentTemplate.comprehensivePerformance = [];
+            }
+            window.currentTemplate.comprehensivePerformance.push({ name: '新大類', weight: 0, items: [] });
+            renderCompCategories();
+        };
+
+        window.removeCompCategory = function(index) {
+            if (confirm('確定要刪除此大類嗎?')) {
+                window.currentTemplate.comprehensivePerformance.splice(index, 1);
+                renderCompCategories();
+            }
+        };
+
+        window.updateCompCategoryName = function(index, value) {
+            window.currentTemplate.comprehensivePerformance[index].name = value;
+        };
+
+        window.updateCompCategoryWeight = function(index, value) {
+            window.currentTemplate.comprehensivePerformance[index].weight = parseFloat(value) || 0;
+        };
+
+        window.addCompItem = function(catIndex) {
+            window.currentTemplate.comprehensivePerformance[catIndex].items.push('新小項');
+            renderCompCategories();
+        };
+
+        window.removeCompItem = function(catIndex, itemIndex) {
+            window.currentTemplate.comprehensivePerformance[catIndex].items.splice(itemIndex, 1);
+            renderCompCategories();
+        };
+
+        window.updateCompItem = function(catIndex, itemIndex, value) {
+            window.currentTemplate.comprehensivePerformance[catIndex].items[itemIndex] = value;
+        };
+
+        // 個人學習相關函數
+        window.addLearningItem = function() {
+            if (!window.currentTemplate.personalLearning) {
+                window.currentTemplate.personalLearning = { weight: 0, items: [] };
+            }
+            window.currentTemplate.personalLearning.items.push('新學習項目');
+            renderLearningItems();
+        };
+
+        window.removeLearningItem = function(index) {
+            window.currentTemplate.personalLearning.items.splice(index, 1);
+            renderLearningItems();
+        };
+
+        window.updateLearningItem = function(index, value) {
+            window.currentTemplate.personalLearning.items[index] = value;
+        };
+
+        // 儲存範本
+        window.saveTemplate = async function(employeeId, period) {
+            const learningWeight = parseFloat(document.getElementById('learningWeight').value) || 0;
+            window.currentTemplate.personalLearning.weight = learningWeight;
+            
+            const templateId = `${employeeId}_${period}`;
+            
+            await setDoc(doc(db, 'evaluation_templates', templateId), {
+                employeeId: employeeId,
+                period: period,
+                workPerformance: window.currentTemplate.workPerformance || [],
+                comprehensivePerformance: window.currentTemplate.comprehensivePerformance || [],
+                personalLearning: window.currentTemplate.personalLearning,
+                updatedAt: new Date().toISOString()
+            });
+            
+            alert('範本儲存成功!');
+        };
+
+        // 複製上月範本
+        window.copyPreviousMonthTemplate = async function() {
+            const employeeId = document.getElementById('templateEmployee').value;
+            const month = document.getElementById('templateMonth').value;
+            
+            if (!employeeId || !month) {
+                alert('請先選擇員工和月份');
+                return;
+            }
+            
+            // 計算上個月
+            const currentDate = new Date(month + '-01');
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            const previousMonth = currentDate.toISOString().slice(0, 7).replace('-', '');
+            
+            // 取得上個月的範本
+            const previousTemplateId = `${employeeId}_${previousMonth}`;
+            const previousTemplateDoc = await getDoc(doc(db, 'evaluation_templates', previousTemplateId));
+            
+            if (!previousTemplateDoc.exists()) {
+                alert('找不到上個月的範本');
+                return;
+            }
+            
+            if (confirm('確定要複製上個月的範本嗎?這會覆蓋目前的設定!')) {
+                const previousTemplate = previousTemplateDoc.data();
+                window.currentTemplate = {
+                    workPerformance: JSON.parse(JSON.stringify(previousTemplate.workPerformance || [])),
+                    comprehensivePerformance: JSON.parse(JSON.stringify(previousTemplate.comprehensivePerformance || [])),
+                    personalLearning: JSON.parse(JSON.stringify(previousTemplate.personalLearning || { weight: 0, items: [] }))
+                };
+                
+                // 更新顯示
+                document.getElementById('learningWeight').value = window.currentTemplate.personalLearning.weight || 0;
+                renderWorkCategories();
+                renderCompCategories();
+                renderLearningItems();
+                
+                alert('已複製上月範本,請記得按「儲存範本」以保存!');
+            }
+        };
+
+        // 清空範本
+        window.clearTemplate = function() {
+            if (confirm('確定要清空目前的範本嗎?')) {
+                window.currentTemplate = {
+                    workPerformance: [],
+                    comprehensivePerformance: [],
+                    personalLearning: { weight: 0, items: [] }
+                };
+                
+                document.getElementById('learningWeight').value = 0;
+                renderWorkCategories();
+                renderCompCategories();
+                renderLearningItems();
+                
+                alert('已清空範本');
+            }
+        };
+
+        // 編輯使用者
+        window.editUser = async function(userId) {
+            // 載入使用者資料
+            const userDoc = await getDoc(doc(db, 'users', userId));
+            if (!userDoc.exists()) {
+                alert('找不到使用者資料');
+                return;
+            }
+            
+            const userData = userDoc.data();
+            
+            // 載入所有主管列表
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            let managersOptions = '';
+            
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                if (user.role === 'manager' || user.role === 'staff') {
+                    const isSelected = userData.evaluators && userData.evaluators.includes(user.userId) ? 'selected' : '';
+                    managersOptions += `<option value="${user.userId}" ${isSelected}>${user.name} (${user.userId})</option>`;
+                }
+            });
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <span class="close-modal" onclick="this.closest('.modal').remove()">&times;</span>
+                    <h2>編輯人員 - ${userData.name}</h2>
+                    <div id="editUserMessage"></div>
+                    <form id="editUserForm">
+                        <div class="form-group">
+                            <label>帳號</label>
+                            <input type="text" value="${userData.userId}" disabled style="background: #f7fafc;">
+                        </div>
+                        <div class="form-group">
+                            <label>姓名</label>
+                            <input type="text" id="editUserName" value="${userData.name}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>新密碼 (不修改請留空)</label>
+                            <input type="password" id="editUserPassword" placeholder="留空表示不修改密碼">
+                        </div>
+                        <div class="form-group">
+                            <label>職等</label>
+                            <select id="editUserLevel">
+                                <option value="" ${!userData.level || userData.level === '' ? 'selected' : ''}>無職等(不需評核)</option>
+                                <option value="L1" ${userData.level === 'L1' ? 'selected' : ''}>L1 (每月評核)</option>
+                                <option value="L2" ${userData.level === 'L2' ? 'selected' : ''}>L2 (季評核)</option>
+                                <option value="L3" ${userData.level === 'L3' ? 'selected' : ''}>L3 (季評核)</option>
+                                <option value="L4" ${userData.level === 'L4' ? 'selected' : ''}>L4 (季評核)</option>
+                                <option value="L5" ${userData.level === 'L5' ? 'selected' : ''}>L5 (不需評核)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>角色</label>
+                            <select id="editUserRole" required ${userId === 'Admin01' ? 'disabled' : ''}>
+                                <option value="employee" ${userData.role === 'employee' ? 'selected' : ''}>一般職員 (無法登入系統)</option>
+                                <option value="staff" ${userData.role === 'staff' ? 'selected' : ''}>一般主管 (可評分)</option>
+                                <option value="manager" ${userData.role === 'manager' ? 'selected' : ''}>管理職主管 (可評分+可查看後台)</option>
+                                ${userData.role === 'admin' ? '<option value="admin" selected>系統管理員</option>' : ''}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>所屬主管 (可複選,按住 Ctrl 或 Command 鍵多選)</label>
+                            <select id="editUserEvaluators" multiple size="6" style="height: auto;">
+                                ${managersOptions}
+                            </select>
+                            <small style="color: #a0aec0; display: block; margin-top: 5px;">
+                                如果此人員需要接受評核,請選擇評核主管<br>
+                                按住 Ctrl (Windows) 或 Command (Mac) 可多選
+                            </small>
+                        </div>
+                        <button type="submit" class="btn btn-primary">儲存修改</button>
+                    </form>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            document.getElementById('editUserForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const name = document.getElementById('editUserName').value;
+                const password = document.getElementById('editUserPassword').value;
+                const level = document.getElementById('editUserLevel').value;
+                const role = userId === 'Admin01' ? 'admin' : document.getElementById('editUserRole').value;
+                
+                // 取得所選的主管
+                const evaluatorsSelect = document.getElementById('editUserEvaluators');
+                const evaluators = Array.from(evaluatorsSelect.selectedOptions).map(option => option.value);
+                
+                const updateData = {
+                    name: name,
+                    level: level || 'L5',
+                    role: role,
+                    evaluators: evaluators
+                };
+                
+                // 如果有輸入新密碼才更新
+                if (password) {
+                    updateData.password = password;
+                }
+                
+                await updateDoc(doc(db, 'users', userId), updateData);
+                
+                alert('人員資料已更新!');
+                modal.remove();
+                loadUsersList();
+            });
+        };
+
+        // 刪除使用者
+        window.deleteUser = async function(userId) {
+            if (!confirm(`確定要刪除使用者 ${userId} 嗎?此操作無法復原!`)) {
+                return;
+            }
+            
+            await deleteDoc(doc(db, 'users', userId));
+            alert('使用者已刪除!');
+            loadUsersList();
+        };
+
+        // 載入統計資料
+        window.loadStatistics = async function() {
+            const month = document.getElementById('statsMonth').value;
+            if (!month) return;
+            
+            const period = month.replace('-', '');
+            const container = document.getElementById('statisticsContainer');
+            container.innerHTML = '<div class="loading">計算中...</div>';
+            
+            // 取得所有使用者
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const employees = [];
+            
+            for (const userDoc of usersSnapshot.docs) {
+                const user = userDoc.data();
+                // 只處理需要評核的員工
+                if (checkNeedsEvaluation(user.level, period)) {
+                    const scores = await calculateEmployeeScores(user.userId, period);
+                    if (scores) {
+                        employees.push({
+                            userId: user.userId,
+                            name: user.name,
+                            level: user.level,
+                            scores: scores
+                        });
+                    }
+                }
+            }
+            
+            if (employees.length === 0) {
+                container.innerHTML = '<p style="color: #a0aec0;">本月無評核資料</p>';
+                return;
+            }
+            
+            // 渲染統計表
+            renderStatisticsTable(employees, period);
+        };
+
+        // 計算員工分數
+        async function calculateEmployeeScores(employeeId, period) {
+            // 取得範本
+            const templateId = `${employeeId}_${period}`;
+            const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
+            
+            if (!templateDoc.exists()) {
+                return null;
+            }
+            
+            const template = templateDoc.data();
+            
+            // 取得所有主管的評分
+            const evaluationsQuery = query(
+                collection(db, 'evaluations'),
+                where('evaluateeId', '==', employeeId),
+                where('period', '==', period),
+                where('status', '==', 'submitted')
+            );
+            
+            const evaluationsSnapshot = await getDocs(evaluationsQuery);
+            const evaluations = [];
+            evaluationsSnapshot.forEach(doc => {
+                evaluations.push(doc.data());
+            });
+            
+            if (evaluations.length === 0) {
+                return null;
+            }
+            
+            // 計算工作表現分數
+            const workScore = calculateCategoryScore(
+                template.workPerformance,
+                evaluations,
+                'work'
+            );
+            
+            // 計算綜合表現分數
+            const compScore = calculateCategoryScore(
+                template.comprehensivePerformance,
+                evaluations,
+                'comp'
+            );
+            
+            // 計算個人學習分數
+            const learningScore = calculateLearningScore(
+                template.personalLearning,
+                evaluations
+            );
+            
+            const totalScore = workScore + compScore + learningScore;
+            
+            return {
+                workScore: workScore,
+                compScore: compScore,
+                learningScore: learningScore,
+                totalScore: totalScore,
+                evaluations: evaluations
+            };
+        }
+
+        // 計算分類分數(工作表現/綜合表現)
+        function calculateCategoryScore(categories, evaluations, prefix) {
+            if (!categories || categories.length === 0) {
+                return 0;
+            }
+            
+            const categoryResults = [];
+            
+            // 計算每個大類的分數
+            categories.forEach(category => {
+                const itemScores = [];
+                
+                category.items.forEach(item => {
+                    const itemKey = `${prefix}_${category.name}_${item}`;
+                    const allScores = [];
+                    
+                    // 收集所有主管對這個小項的評分
+                    evaluations.forEach(evaluation => {
+                        const score1 = parseFloat(evaluation.scores[`${itemKey}_1`]);
+                        const score2 = parseFloat(evaluation.scores[`${itemKey}_2`]);
+                        
+                        // 如果兩個欄位都有填寫
+                        if (!isNaN(score1) && !isNaN(score2)) {
+                            // 先平均兩個欄位
+                            const avgScore = (score1 + score2) / 2;
+                            allScores.push(avgScore);
+                        }
+                    });
+                    
+                    // 計算這個小項的平均分數
+                    if (allScores.length > 0) {
+                        const itemAvg = allScores.reduce((a, b) => a + b, 0) / allScores.length;
+                        itemScores.push(itemAvg);
+                    }
+                });
+                
+                // 如果這個大類有分數
+                if (itemScores.length > 0) {
+                    const categoryAvg = itemScores.reduce((a, b) => a + b, 0) / itemScores.length;
+                    categoryResults.push({
+                        score: categoryAvg,
+                        weight: category.weight,
+                        hasScore: true
+                    });
+                } else {
+                    // 沒有分數但記錄佔比,用於均攤
+                    categoryResults.push({
+                        score: 0,
+                        weight: category.weight,
+                        hasScore: false
+                    });
+                }
+            });
+            
+            // 計算需要均攤的佔比
+            const totalOriginalWeight = categoryResults.reduce((sum, cat) => sum + cat.weight, 0);
+            const scoredWeight = categoryResults.filter(cat => cat.hasScore).reduce((sum, cat) => sum + cat.weight, 0);
+            const unscoredWeight = totalOriginalWeight - scoredWeight;
+            
+            // 如果沒有任何分數
+            if (scoredWeight === 0) {
+                return 0;
+            }
+            
+            // 計算最終分數
+            let finalScore = 0;
+            categoryResults.forEach(cat => {
+                if (cat.hasScore) {
+                    // 調整後的佔比 = 原佔比 + (原佔比/已評分總佔比) × 未評分總佔比
+                    const adjustedWeight = cat.weight + (cat.weight / scoredWeight) * unscoredWeight;
+                    // 大類得分 = (小項平均分 / 5) × 調整後佔比
+                    const categoryScore = (cat.score / 5) * adjustedWeight;
+                    finalScore += categoryScore;
+                }
+            });
+            
+            return finalScore;
+        }
+
+        // 計算個人學習分數
+        function calculateLearningScore(learningTemplate, evaluations) {
+            if (!learningTemplate || !learningTemplate.items || learningTemplate.items.length === 0) {
+                return 0;
+            }
+            
+            const itemScores = [];
+            
+            learningTemplate.items.forEach(item => {
+                const itemKey = `learn_${item}`;
+                const allScores = [];
+                
+                evaluations.forEach(evaluation => {
+                    const score1 = parseFloat(evaluation.scores[`${itemKey}_1`]);
+                    const score2 = parseFloat(evaluation.scores[`${itemKey}_2`]);
+                    
+                    if (!isNaN(score1) && !isNaN(score2)) {
+                        const avgScore = (score1 + score2) / 2;
+                        allScores.push(avgScore);
+                    }
+                });
+                
+                if (allScores.length > 0) {
+                    const itemAvg = allScores.reduce((a, b) => a + b, 0) / allScores.length;
+                    itemScores.push(itemAvg);
+                }
+            });
+            
+            if (itemScores.length === 0) {
+                return 0;
+            }
+            
+            // 計算所有學習項目的平均分
+            const avgScore = itemScores.reduce((a, b) => a + b, 0) / itemScores.length;
+            // 個人學習得分 = (平均分 / 5) × 佔比
+            return (avgScore / 5) * learningTemplate.weight;
+        }
+
+        // 渲染統計表
+        async function renderStatisticsTable(employees, period) {
+            const container = document.getElementById('statisticsContainer');
+            
+            // 計算上個月期間
+            const currentDate = new Date(period.slice(0, 4) + '-' + period.slice(4) + '-01');
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            const previousPeriod = currentDate.toISOString().slice(0, 7).replace('-', '');
+            
+            // 取得上個月分數
+            const previousScores = {};
+            for (const emp of employees) {
+                const prevScores = await calculateEmployeeScores(emp.userId, previousPeriod);
+                if (prevScores) {
+                    previousScores[emp.userId] = prevScores.totalScore;
+                }
+            }
+            
+            let html = '';
+            
+            employees.forEach(emp => {
+                const prevScore = previousScores[emp.userId];
+                let diff = null;
+                let diffClass = '';
+                let diffText = '-';
+                
+                if (prevScore !== undefined) {
+                    diff = emp.scores.totalScore - prevScore;
+                    if (diff > 0 && diff >= 5) {
+                        diffClass = 'score-positive';
+                        diffText = `+${diff.toFixed(1)}`;
+                    } else if (diff < 0 && diff <= -6) {
+                        diffClass = 'score-negative-heavy';
+                        diffText = diff.toFixed(1);
+                    } else if (diff < 0 && diff > -6) {
+                        diffClass = 'score-negative-light';
+                        diffText = diff.toFixed(1);
+                    } else {
+                        diffText = diff.toFixed(1);
+                    }
+                }
+                
+                html += `
+                    <div style="background: white; padding: 25px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <h3 style="color: #667eea; margin-bottom: 20px;">${emp.name} (${emp.userId}) - ${emp.level}</h3>
+                        <table style="width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th>月份</th>
+                                    <th>工作表現</th>
+                                    <th>綜合表現</th>
+                                    <th>個人學習</th>
+                                    <th>總分</th>
+                                    <th>與上月比較</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>${period.slice(0,4)}年${period.slice(4)}月</td>
+                                    <td>${emp.scores.workScore.toFixed(1)}</td>
+                                    <td>${emp.scores.compScore.toFixed(1)}</td>
+                                    <td>${emp.scores.learningScore.toFixed(1)}</td>
+                                    <td><strong>${emp.scores.totalScore.toFixed(1)}</strong></td>
+                                    <td class="${diffClass}">${diffText}</td>
+                                    <td>
+                                        <button class="btn btn-secondary" onclick="window.viewEvaluationDetails('${emp.userId}', '${period}')">查看明細</button>
+                                        <button class="btn btn-danger" onclick="window.returnEvaluations('${emp.userId}', '${period}')">退單</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        // 查看評分明細
+        window.viewEvaluationDetails = async function(employeeId, period) {
+            const evaluationsQuery = query(
+                collection(db, 'evaluations'),
+                where('evaluateeId', '==', employeeId),
+                where('period', '==', period),
+                where('status', '==', 'submitted')
+            );
+            
+            const evaluationsSnapshot = await getDocs(evaluationsQuery);
+            
+            // 取得主管名稱
+            const evaluatorNames = {};
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                evaluatorNames[user.userId] = user.name;
+            });
+            
+            let detailsHtml = '<h3>評分明細</h3>';
+            
+            evaluationsSnapshot.forEach(doc => {
+                const evaluation = doc.data();
+                const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
+                
+                detailsHtml += `
+                    <div style="background: #f7fafc; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
+                        <h4>${evaluatorName} 的評分</h4>
+                        <p><strong>評語:</strong> ${evaluation.comment || '無'}</p>
+                        <p><strong>送出時間:</strong> ${new Date(evaluation.submittedAt).toLocaleString('zh-TW')}</p>
+                    </div>
+                `;
+            });
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <span class="close-modal" onclick="this.closest('.modal').remove()">&times;</span>
+                    ${detailsHtml}
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        };
+
+        // 退單功能
+        window.returnEvaluations = async function(employeeId, period) {
+            if (!confirm('確定要退回此員工的所有評分嗎?主管將可以重新修改並送出。')) {
+                return;
+            }
+            
+            const evaluationsQuery = query(
+                collection(db, 'evaluations'),
+                where('evaluateeId', '==', employeeId),
+                where('period', '==', period),
+                where('status', '==', 'submitted')
+            );
+            
+            const evaluationsSnapshot = await getDocs(evaluationsQuery);
+            
+            for (const evalDoc of evaluationsSnapshot.docs) {
+                await updateDoc(doc(db, 'evaluations', evalDoc.id), {
+                    status: 'draft',
+                    returnedAt: new Date().toISOString()
+                });
+            }
+            
+            alert('已退單!主管現在可以重新修改評分。');
+            window.loadStatistics();
+        };
+
+        // 下載CSV
+        window.downloadCSV = async function() {
+            const month = document.getElementById('statsMonth').value;
+            if (!month) {
+                alert('請先選擇月份');
+                return;
+            }
+            
+            const period = month.replace('-', '');
+            
+            // 取得所有評分記錄
+            const evaluationsQuery = query(
+                collection(db, 'evaluations'),
+                where('period', '==', period),
+                where('status', '==', 'submitted')
+            );
+            
+            const evaluationsSnapshot = await getDocs(evaluationsQuery);
+            
+            if (evaluationsSnapshot.empty) {
+                alert('本月無評分資料');
+                return;
+            }
+            
+            // 取得所有使用者名稱
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const userNames = {};
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                userNames[user.userId] = user.name;
+            });
+            
+            // 建立 CSV 內容
+            let csv = '被評人,主管,評分項目,執行力與準時性,錯誤率與專業性,評語,送出時間\n';
+            
+            evaluationsSnapshot.forEach(doc => {
+                const evaluation = doc.data();
+                const evaluateeName = userNames[evaluation.evaluateeId] || evaluation.evaluateeId;
+                const evaluatorName = userNames[evaluation.evaluatorId] || evaluation.evaluatorId;
+                const submittedAt = new Date(evaluation.submittedAt).toLocaleString('zh-TW');
+                const comment = (evaluation.comment || '').replace(/,/g, '，').replace(/\n/g, ' ');
+                
+                // 輸出每個評分項目
+                for (const [key, value] of Object.entries(evaluation.scores)) {
+                    if (key.endsWith('_1')) {
+                        const baseKey = key.slice(0, -2);
+                        const score1 = value;
+                        const score2 = evaluation.scores[`${baseKey}_2`] || '';
+                        
+                        csv += `${evaluateeName},${evaluatorName},${baseKey},${score1},${score2},${comment},${submittedAt}\n`;
+                    }
+                }
+            });
+            
+            // 下載 CSV
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `評分明細_${period}.csv`;
+            link.click();
+        };
+
+        // 載入職等比對圖表
+        window.loadCharts = async function() {
+            const year = document.getElementById('chartYear').value;
+            if (!year) return;
+            
+            const container = document.getElementById('chartsContainer');
+            container.innerHTML = '<div class="loading">載入中...</div>';
+            
+            // 取得所有使用者並按職等分組
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const levelGroups = {};
+            
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                // 排除 L5 和無職等的使用者
+                if (user.level && user.level !== 'L5' && user.level !== '' && ['L1', 'L2', 'L3', 'L4'].includes(user.level)) {
+                    if (!levelGroups[user.level]) {
+                        levelGroups[user.level] = [];
+                    }
+                    levelGroups[user.level].push(user);
+                }
+            });
+            
+            if (Object.keys(levelGroups).length === 0) {
+                container.innerHTML = '<p style="color: #a0aec0;">無職等資料</p>';
+                return;
+            }
+            
+            // 為每個職等生成圖表
+            let chartsHtml = '';
+            
+            for (const [level, employees] of Object.entries(levelGroups)) {
+                const chartId = `chart_${level}`;
+                chartsHtml += `
+                    <div class="chart-container">
+                        <h3 class="chart-title">${level} 職等年度績效比對</h3>
+                        <canvas id="${chartId}" style="max-height: 400px;"></canvas>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = chartsHtml;
+            
+            // 渲染每個圖表
+            for (const [level, employees] of Object.entries(levelGroups)) {
+                await renderLevelChart(level, employees, year);
+            }
+        };
+
+        // 渲染職等圖表
+        async function renderLevelChart(level, employees, year) {
+            const chartId = `chart_${level}`;
+            const canvas = document.getElementById(chartId);
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            
+            // 準備資料
+            const months = [];
+            const datasets = [];
+            
+            // 根據職等決定要顯示哪些月份
+            if (level === 'L1') {
+                // L1 顯示全年12個月
+                for (let m = 1; m <= 12; m++) {
+                    months.push(`${m}月`);
+                }
+            } else {
+                // L2-L4 只顯示 3, 5, 9, 12 月
+                months.push('3月', '5月', '9月', '12月');
+            }
+            
+            // 為每個員工建立資料集
+            const colors = [
+                '#667eea', '#764ba2', '#f093fb', '#4facfe',
+                '#43e97b', '#fa709a', '#fee140', '#30cfd0',
+                '#a8edea', '#fed6e3', '#c471f5', '#12c2e9'
+            ];
+            
+            for (let i = 0; i < employees.length; i++) {
+                const employee = employees[i];
+                const scores = [];
+                
+                // 取得該員工每個月的分數
+                for (let m of (level === 'L1' ? [1,2,3,4,5,6,7,8,9,10,11,12] : [3,5,9,12])) {
+                    const period = `${year}${String(m).padStart(2, '0')}`;
+                    const employeeScores = await calculateEmployeeScores(employee.userId, period);
+                    
+                    if (employeeScores) {
+                        scores.push(employeeScores.totalScore.toFixed(1));
+                    } else {
+                        scores.push(null); // 沒有資料顯示為空
+                    }
+                }
+                
+                datasets.push({
+                    label: employee.name,
+                    data: scores,
+                    backgroundColor: colors[i % colors.length],
+                    borderColor: colors[i % colors.length],
+                    borderWidth: 2
+                });
+            }
+            
+            // 建立圖表
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: months,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y + ' 分';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: '分數'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '月份'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 顯示管理後台
+        window.showAdminPanel = function() {
+            renderAdminDashboard();
+        };
+
+        // 返回評分頁面
+        window.backToEvaluation = function() {
+            renderEvaluatorDashboard();
+        };
+
+        // 登出
+        window.logout = function() {
+            currentUser = null;
+            renderLogin();
+        };
+
+        // 顯示訊息
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                element.innerHTML = '';
+            }, 3000);
+        }
+
+        // 啟動系統
+        initSystem();
+    </script>
+</body>
+</html>
