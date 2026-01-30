@@ -675,10 +675,10 @@
             // 工作表現
             if (template.workPerformance) {
                 html += '<div class="category-section"><h3 class="category-title">工作表現</h3>';
-                template.workPerformance.forEach(category => {
+                template.workPerformance.forEach((category, catIndex) => {
                     html += `<h4 style="margin: 15px 0 10px 0;">${category.name} (佔比: ${category.weight}%)</h4>`;
-                    category.items.forEach(item => {
-                        const itemKey = `work_${category.name}_${item}`;
+                    category.items.forEach((item, itemIndex) => {
+                        const itemKey = `work_${catIndex}_${itemIndex}`;
                         const score1 = savedScores[`${itemKey}_1`] || '';
                         const score2 = savedScores[`${itemKey}_2`] || '';
                         
@@ -703,10 +703,10 @@
             // 綜合表現
             if (template.comprehensivePerformance) {
                 html += '<div class="category-section"><h3 class="category-title">綜合表現</h3>';
-                template.comprehensivePerformance.forEach(category => {
+                template.comprehensivePerformance.forEach((category, catIndex) => {
                     html += `<h4 style="margin: 15px 0 10px 0;">${category.name} (佔比: ${category.weight}%)</h4>`;
-                    category.items.forEach(item => {
-                        const itemKey = `comp_${category.name}_${item}`;
+                    category.items.forEach((item, itemIndex) => {
+                        const itemKey = `comp_${catIndex}_${itemIndex}`;
                         const score1 = savedScores[`${itemKey}_1`] || '';
                         const score2 = savedScores[`${itemKey}_2`] || '';
                         
@@ -731,8 +731,8 @@
             // 個人學習
             if (template.personalLearning) {
                 html += '<div class="category-section"><h3 class="category-title">個人學習</h3>';
-                template.personalLearning.items.forEach(item => {
-                    const itemKey = `learn_${item}`;
+                template.personalLearning.items.forEach((item, itemIndex) => {
+                    const itemKey = `learn_${itemIndex}`;
                     const score1 = savedScores[`${itemKey}_1`] || '';
                     const score2 = savedScores[`${itemKey}_2`] || '';
                     
@@ -1503,6 +1503,37 @@
             const learningWeight = parseFloat(document.getElementById('learningWeight').value) || 0;
             window.currentTemplate.personalLearning.weight = learningWeight;
             
+            // 計算總佔比
+            let totalWeight = 0;
+            
+            // 工作表現佔比
+            if (window.currentTemplate.workPerformance) {
+                window.currentTemplate.workPerformance.forEach(cat => {
+                    totalWeight += parseFloat(cat.weight) || 0;
+                });
+            }
+            
+            // 綜合表現佔比
+            if (window.currentTemplate.comprehensivePerformance) {
+                window.currentTemplate.comprehensivePerformance.forEach(cat => {
+                    totalWeight += parseFloat(cat.weight) || 0;
+                });
+            }
+            
+            // 個人學習佔比
+            totalWeight += learningWeight;
+            
+            // 檢查佔比總和
+            if (Math.abs(totalWeight - 100) > 0.01) { // 允許小數點誤差
+                const diff = totalWeight - 100;
+                const message = diff > 0 
+                    ? `⚠️ 佔比總和超過 100%\n\n目前總和: ${totalWeight.toFixed(1)}%\n超過: ${diff.toFixed(1)}%\n\n請調整各項佔比!`
+                    : `⚠️ 佔比總和不足 100%\n\n目前總和: ${totalWeight.toFixed(1)}%\n不足: ${Math.abs(diff).toFixed(1)}%\n\n請調整各項佔比!`;
+                
+                alert(message);
+                return;
+            }
+            
             const templateId = `${employeeId}_${period}`;
             
             await setDoc(doc(db, 'evaluation_templates', templateId), {
@@ -1818,11 +1849,11 @@
             const categoryResults = [];
             
             // 計算每個大類的分數
-            categories.forEach(category => {
+            categories.forEach((category, catIndex) => {
                 const itemScores = [];
                 
-                category.items.forEach(item => {
-                    const itemKey = `${prefix}_${category.name}_${item}`;
+                category.items.forEach((item, itemIndex) => {
+                    const itemKey = `${prefix}_${catIndex}_${itemIndex}`;
                     const allScores = [];
                     
                     // 收集所有主管對這個小項的評分
@@ -1834,15 +1865,24 @@
                         const hasScore1 = score1Value !== undefined && score1Value !== null && score1Value !== '';
                         const hasScore2 = score2Value !== undefined && score2Value !== null && score2Value !== '';
                         
-                        // 如果兩個欄位都有填寫
-                        if (hasScore1 && hasScore2) {
-                            const score1 = parseFloat(score1Value);
-                            const score2 = parseFloat(score2Value);
+                        // 如果至少有一個欄位有填寫
+                        if (hasScore1 || hasScore2) {
+                            const score1 = hasScore1 ? parseFloat(score1Value) : 0;
+                            const score2 = hasScore2 ? parseFloat(score2Value) : 0;
                             
                             if (!isNaN(score1) && !isNaN(score2)) {
-                                // 先平均兩個欄位
-                                const avgScore = (score1 + score2) / 2;
-                                allScores.push(avgScore);
+                                // 如果兩個都有填,取平均
+                                if (hasScore1 && hasScore2) {
+                                    const avgScore = (score1 + score2) / 2;
+                                    allScores.push(avgScore);
+                                }
+                                // 如果只有一個有填,就用該分數
+                                else if (hasScore1) {
+                                    allScores.push(score1);
+                                }
+                                else if (hasScore2) {
+                                    allScores.push(score2);
+                                }
                             }
                         }
                     });
@@ -1905,8 +1945,8 @@
             
             const itemScores = [];
             
-            learningTemplate.items.forEach(item => {
-                const itemKey = `learn_${item}`;
+            learningTemplate.items.forEach((item, itemIndex) => {
+                const itemKey = `learn_${itemIndex}`;
                 const allScores = [];
                 
                 evaluations.forEach(evaluation => {
@@ -1917,13 +1957,24 @@
                     const hasScore1 = score1Value !== undefined && score1Value !== null && score1Value !== '';
                     const hasScore2 = score2Value !== undefined && score2Value !== null && score2Value !== '';
                     
-                    if (hasScore1 && hasScore2) {
-                        const score1 = parseFloat(score1Value);
-                        const score2 = parseFloat(score2Value);
+                    // 如果至少有一個欄位有填寫
+                    if (hasScore1 || hasScore2) {
+                        const score1 = hasScore1 ? parseFloat(score1Value) : 0;
+                        const score2 = hasScore2 ? parseFloat(score2Value) : 0;
                         
                         if (!isNaN(score1) && !isNaN(score2)) {
-                            const avgScore = (score1 + score2) / 2;
-                            allScores.push(avgScore);
+                            // 如果兩個都有填,取平均
+                            if (hasScore1 && hasScore2) {
+                                const avgScore = (score1 + score2) / 2;
+                                allScores.push(avgScore);
+                            }
+                            // 如果只有一個有填,就用該分數
+                            else if (hasScore1) {
+                                allScores.push(score1);
+                            }
+                            else if (hasScore2) {
+                                allScores.push(score2);
+                            }
                         }
                     }
                 });
@@ -2046,6 +2097,11 @@
             const employeeDoc = await getDoc(doc(db, 'users', employeeId));
             const employeeName = employeeDoc.exists() ? employeeDoc.data().name : employeeId;
             
+            // 取得範本
+            const templateId = `${employeeId}_${period}`;
+            const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
+            const template = templateDoc.exists() ? templateDoc.data() : null;
+            
             let detailsHtml = `<h3>${employeeName} - ${period.slice(0,4)}年${period.slice(4)}月 評分明細</h3>`;
             
             evaluationsSnapshot.forEach(doc => {
@@ -2054,14 +2110,44 @@
                 
                 // 顯示所有評分項目
                 let scoresHtml = '<div style="max-height: 300px; overflow-y: auto; background: white; padding: 10px; border-radius: 5px; margin-top: 10px;">';
-                scoresHtml += '<table style="width: 100%; font-size: 0.9em;"><thead><tr><th>評分項目</th><th>執行力</th><th>錯誤率</th></tr></thead><tbody>';
+                scoresHtml += '<table style="width: 100%; font-size: 0.9em;"><thead><tr><th>類別</th><th>評分項目</th><th>執行力</th><th>錯誤率</th></tr></thead><tbody>';
                 
-                for (const [key, value] of Object.entries(evaluation.scores)) {
-                    if (key.endsWith('_1')) {
-                        const baseKey = key.slice(0, -2);
-                        const score1 = value;
-                        const score2 = evaluation.scores[`${baseKey}_2`] || '';
-                        scoresHtml += `<tr><td style="font-size: 0.8em;">${baseKey}</td><td>${score1}</td><td>${score2}</td></tr>`;
+                if (template) {
+                    // 工作表現
+                    if (template.workPerformance) {
+                        template.workPerformance.forEach((category, catIndex) => {
+                            category.items.forEach((item, itemIndex) => {
+                                const itemKey = `work_${catIndex}_${itemIndex}`;
+                                const score1 = evaluation.scores[`${itemKey}_1`] || '';
+                                const score2 = evaluation.scores[`${itemKey}_2`] || '';
+                                
+                                scoresHtml += `<tr><td style="font-size: 0.8em;">工作-${category.name}</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
+                            });
+                        });
+                    }
+                    
+                    // 綜合表現
+                    if (template.comprehensivePerformance) {
+                        template.comprehensivePerformance.forEach((category, catIndex) => {
+                            category.items.forEach((item, itemIndex) => {
+                                const itemKey = `comp_${catIndex}_${itemIndex}`;
+                                const score1 = evaluation.scores[`${itemKey}_1`] || '';
+                                const score2 = evaluation.scores[`${itemKey}_2`] || '';
+                                
+                                scoresHtml += `<tr><td style="font-size: 0.8em;">綜合-${category.name}</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
+                            });
+                        });
+                    }
+                    
+                    // 個人學習
+                    if (template.personalLearning && template.personalLearning.items) {
+                        template.personalLearning.items.forEach((item, itemIndex) => {
+                            const itemKey = `learn_${itemIndex}`;
+                            const score1 = evaluation.scores[`${itemKey}_1`] || '';
+                            const score2 = evaluation.scores[`${itemKey}_2`] || '';
+                            
+                            scoresHtml += `<tr><td style="font-size: 0.8em;">個人學習</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
+                        });
                     }
                 }
                 
@@ -2180,29 +2266,72 @@
             });
             
             // 建立 CSV 內容
-            let csv = '被評人,主管,評分項目,執行力與準時性,錯誤率與專業性,評語,送出時間\n';
+            let csv = '\uFEFF'; // UTF-8 BOM
+            csv += '被評人,主管,大類,小項,執行力與準時性,錯誤率與專業性,評語,送出時間\n';
             
-            evaluationsSnapshot.forEach(doc => {
-                const evaluation = doc.data();
+            for (const evalDoc of evaluationsSnapshot.docs) {
+                const evaluation = evalDoc.data();
                 const evaluateeName = userNames[evaluation.evaluateeId] || evaluation.evaluateeId;
                 const evaluatorName = userNames[evaluation.evaluatorId] || evaluation.evaluatorId;
                 const submittedAt = new Date(evaluation.submittedAt).toLocaleString('zh-TW');
-                const comment = (evaluation.comment || '').replace(/,/g, '，').replace(/\n/g, ' ');
+                const comment = (evaluation.comment || '').replace(/,/g, '，').replace(/\n/g, ' ').replace(/"/g, '""');
                 
-                // 輸出每個評分項目
-                for (const [key, value] of Object.entries(evaluation.scores)) {
-                    if (key.endsWith('_1')) {
-                        const baseKey = key.slice(0, -2);
-                        const score1 = value;
-                        const score2 = evaluation.scores[`${baseKey}_2`] || '';
-                        
-                        csv += `${evaluateeName},${evaluatorName},${baseKey},${score1},${score2},${comment},${submittedAt}\n`;
+                // 取得範本以解析項目名稱
+                const templateId = `${evaluation.evaluateeId}_${period}`;
+                const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
+                
+                if (templateDoc.exists()) {
+                    const template = templateDoc.data();
+                    
+                    // 工作表現
+                    if (template.workPerformance) {
+                        template.workPerformance.forEach((category, catIndex) => {
+                            category.items.forEach((item, itemIndex) => {
+                                const itemKey = `work_${catIndex}_${itemIndex}`;
+                                const score1 = evaluation.scores[`${itemKey}_1`] || '';
+                                const score2 = evaluation.scores[`${itemKey}_2`] || '';
+                                
+                                const itemName = item.replace(/,/g, '，').replace(/\n/g, ' ').replace(/"/g, '""');
+                                const categoryName = category.name.replace(/,/g, '，').replace(/"/g, '""');
+                                
+                                csv += `"${evaluateeName}","${evaluatorName}","工作表現-${categoryName}","${itemName}",${score1},${score2},"${comment}","${submittedAt}"\n`;
+                            });
+                        });
+                    }
+                    
+                    // 綜合表現
+                    if (template.comprehensivePerformance) {
+                        template.comprehensivePerformance.forEach((category, catIndex) => {
+                            category.items.forEach((item, itemIndex) => {
+                                const itemKey = `comp_${catIndex}_${itemIndex}`;
+                                const score1 = evaluation.scores[`${itemKey}_1`] || '';
+                                const score2 = evaluation.scores[`${itemKey}_2`] || '';
+                                
+                                const itemName = item.replace(/,/g, '，').replace(/\n/g, ' ').replace(/"/g, '""');
+                                const categoryName = category.name.replace(/,/g, '，').replace(/"/g, '""');
+                                
+                                csv += `"${evaluateeName}","${evaluatorName}","綜合表現-${categoryName}","${itemName}",${score1},${score2},"${comment}","${submittedAt}"\n`;
+                            });
+                        });
+                    }
+                    
+                    // 個人學習
+                    if (template.personalLearning && template.personalLearning.items) {
+                        template.personalLearning.items.forEach((item, itemIndex) => {
+                            const itemKey = `learn_${itemIndex}`;
+                            const score1 = evaluation.scores[`${itemKey}_1`] || '';
+                            const score2 = evaluation.scores[`${itemKey}_2`] || '';
+                            
+                            const itemName = item.replace(/,/g, '，').replace(/\n/g, ' ').replace(/"/g, '""');
+                            
+                            csv += `"${evaluateeName}","${evaluatorName}","個人學習","${itemName}",${score1},${score2},"${comment}","${submittedAt}"\n`;
+                        });
                     }
                 }
-            });
+            }
             
             // 下載 CSV
-            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = `評分明細_${period}.csv`;
