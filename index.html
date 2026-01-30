@@ -243,7 +243,7 @@
             display: grid;
             grid-template-columns: 2fr 1fr 1fr;
             gap: 15px;
-            align-items: center;
+            align-items: start;
             margin-bottom: 15px;
             padding: 15px;
             background: white;
@@ -253,6 +253,10 @@
         .item-name {
             font-weight: bold;
             color: #2d3748;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding-top: 8px;
         }
 
         .score-input {
@@ -1162,39 +1166,120 @@
             
             const period = month.replace('-', '');
             const templateId = `${employeeId}_${period}`;
-            const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
             
-            const editorDiv = document.getElementById('templateEditor');
+            // 檢查是否有評分記錄
+            const evaluationsQuery = query(
+                collection(db, 'evaluations'),
+                where('evaluateeId', '==', employeeId),
+                where('period', '==', period)
+            );
+            
+            const evaluationsSnapshot = await getDocs(evaluationsQuery);
+            const hasEvaluations = !evaluationsSnapshot.empty;
+            
+            // 如果有評分記錄,顯示警告
+            let evaluationWarning = '';
+            if (hasEvaluations) {
+                const evaluatorsList = [];
+                evaluationsSnapshot.forEach(doc => {
+                    const evaluation = doc.data();
+                    evaluatorsList.push({
+                        evaluatorId: evaluation.evaluatorId,
+                        status: evaluation.status
+                    });
+                });
+                
+                // 取得主管名稱
+                const evaluatorNames = [];
+                for (const ev of evaluatorsList) {
+                    const userDoc = await getDoc(doc(db, 'users', ev.evaluatorId));
+                    if (userDoc.exists()) {
+                        const statusText = ev.status === 'submitted' ? '已送出' : '草稿';
+                        evaluatorNames.push(`${userDoc.data().name} (${statusText})`);
+                    }
+                }
+                
+                evaluationWarning = `
+                    <div style="background: #fff5f5; border: 2px solid #f56565; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                        <h3 style="color: #c53030; margin-bottom: 10px;">⚠️ 範本已鎖定</h3>
+                        <p style="color: #742a2a; margin-bottom: 10px;">
+                            <strong>原因:</strong> 以下主管已開始評分,為避免資料錯誤,範本已鎖定無法編輯:
+                        </p>
+                        <ul style="color: #742a2a; margin-left: 20px;">
+                            ${evaluatorNames.map(name => `<li>${name}</li>`).join('')}
+                        </ul>
+                        <p style="color: #742a2a; margin-top: 10px;">
+                            若需修改範本,請先使用「退單」功能清空所有評分記錄。
+                        </p>
+                        ${currentUser.role === 'admin' ? `
+                        <button type="button" class="btn btn-danger" onclick="window.forceUnlockTemplate('${employeeId}', '${period}')" style="margin-top: 10px;">
+                            🔓 強制解鎖 (會清空所有評分記錄)
+                        </button>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
             
             if (templateDoc.exists()) {
                 // 載入現有範本
                 const template = templateDoc.data();
-                renderTemplateForm(template, employeeId, period);
+                renderTemplateForm(template, employeeId, period, hasEvaluations, evaluationWarning);
             } else {
                 // 建立新範本
                 renderTemplateForm({
                     workPerformance: [],
                     comprehensivePerformance: [],
                     personalLearning: { weight: 0, items: [] }
-                }, employeeId, period);
+                }, employeeId, period, hasEvaluations, evaluationWarning);
             }
         };
 
+        // 強制解鎖範本
+        window.forceUnlockTemplate = async function(employeeId, period) {
+            if (!confirm('⚠️ 警告!\n\n強制解鎖會刪除所有主管對此員工本月的評分記錄!\n\n這個動作無法復原,確定要繼續嗎?')) {
+                return;
+            }
+            
+            if (!confirm('再次確認:\n\n您確定要刪除所有評分記錄並解鎖範本嗎?')) {
+                return;
+            }
+            
+            // 刪除所有評分記錄
+            const evaluationsQuery = query(
+                collection(db, 'evaluations'),
+                where('evaluateeId', '==', employeeId),
+                where('period', '==', period)
+            );
+            
+            const evaluationsSnapshot = await getDocs(evaluationsQuery);
+            
+            for (const evalDoc of evaluationsSnapshot.docs) {
+                await deleteDoc(doc(db, 'evaluations', evalDoc.id));
+            }
+            
+            alert('已清空所有評分記錄,範本已解鎖!');
+            window.loadTemplate();
+        };
+
         // 渲染範本編輯表單
-        function renderTemplateForm(template, employeeId, period) {
+        function renderTemplateForm(template, employeeId, period, isLocked = false, lockWarning = '') {
             const editorDiv = document.getElementById('templateEditor');
             const isAdmin = currentUser.role === 'admin';
-            const disabled = !isAdmin ? 'disabled' : '';
+            const canEdit = isAdmin && !isLocked; // 只有管理員且未鎖定才能編輯
+            const disabled = !canEdit ? 'disabled' : '';
             
             editorDiv.innerHTML = `
+                ${lockWarning}
                 <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin-top: 20px;">
                     <h3>工作表現</h3>
                     <div id="workPerformanceCategories"></div>
-                    ${isAdmin ? '<button type="button" class="btn btn-primary" onclick="window.addWorkCategory()">新增大類</button>' : ''}
+                    ${canEdit ? '<button type="button" class="btn btn-primary" onclick="window.addWorkCategory()">新增大類</button>' : ''}
                     
                     <h3 style="margin-top: 30px;">綜合表現</h3>
                     <div id="comprehensivePerformanceCategories"></div>
-                    ${isAdmin ? '<button type="button" class="btn btn-primary" onclick="window.addCompCategory()">新增大類</button>' : ''}
+                    ${canEdit ? '<button type="button" class="btn btn-primary" onclick="window.addCompCategory()">新增大類</button>' : ''}
                     
                     <h3 style="margin-top: 30px;">個人學習</h3>
                     <div class="form-group">
@@ -1202,9 +1287,9 @@
                         <input type="number" id="learningWeight" value="${template.personalLearning.weight || 0}" min="0" max="100" ${disabled}>
                     </div>
                     <div id="learningItems"></div>
-                    ${isAdmin ? '<button type="button" class="btn btn-primary" onclick="window.addLearningItem()">新增學習項目</button>' : ''}
+                    ${canEdit ? '<button type="button" class="btn btn-primary" onclick="window.addLearningItem()">新增學習項目</button>' : ''}
                     
-                    ${isAdmin ? `
+                    ${canEdit ? `
                     <div style="margin-top: 30px; text-align: right;">
                         <button type="button" class="btn btn-success" onclick="window.saveTemplate('${employeeId}', '${period}')">儲存範本</button>
                     </div>
@@ -1214,6 +1299,7 @@
             
             // 儲存當前範本到全域變數
             window.currentTemplate = template;
+            window.currentTemplateLocked = isLocked;
             
             // 渲染現有資料
             renderWorkCategories();
@@ -1226,7 +1312,9 @@
             const container = document.getElementById('workPerformanceCategories');
             const categories = window.currentTemplate.workPerformance || [];
             const isAdmin = currentUser.role === 'admin';
-            const disabled = !isAdmin ? 'disabled' : '';
+            const isLocked = window.currentTemplateLocked || false;
+            const canEdit = isAdmin && !isLocked;
+            const disabled = !canEdit ? 'disabled' : '';
             
             let html = '';
             categories.forEach((cat, index) => {
@@ -1237,17 +1325,17 @@
                                    style="flex: 1; margin-right: 10px; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px;" ${disabled}>
                             <input type="number" value="${cat.weight}" onchange="window.updateWorkCategoryWeight(${index}, this.value)" 
                                    placeholder="佔比%" min="0" max="100" style="width: 80px; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px;" ${disabled}>
-                            ${isAdmin ? `<button type="button" class="btn btn-danger" onclick="window.removeWorkCategory(${index})" style="margin-left: 10px;">刪除大類</button>` : ''}
+                            ${canEdit ? `<button type="button" class="btn btn-danger" onclick="window.removeWorkCategory(${index})" style="margin-left: 10px;">刪除大類</button>` : ''}
                         </div>
                         <div>
                             ${cat.items.map((item, itemIndex) => `
                                 <div style="display: flex; margin-bottom: 5px;">
-                                    <input type="text" value="${item}" onchange="window.updateWorkItem(${index}, ${itemIndex}, this.value)"
-                                           style="flex: 1; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px; margin-right: 5px;" ${disabled}>
-                                    ${isAdmin ? `<button type="button" class="btn btn-danger" onclick="window.removeWorkItem(${index}, ${itemIndex})">刪除</button>` : ''}
+                                    <textarea onchange="window.updateWorkItem(${index}, ${itemIndex}, this.value)"
+                                           style="flex: 1; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px; margin-right: 5px; min-height: 60px; resize: vertical; font-family: inherit;" ${disabled}>${item}</textarea>
+                                    ${canEdit ? `<button type="button" class="btn btn-danger" onclick="window.removeWorkItem(${index}, ${itemIndex})" style="align-self: flex-start;">刪除</button>` : ''}
                                 </div>
                             `).join('')}
-                            ${isAdmin ? `<button type="button" class="btn btn-secondary" onclick="window.addWorkItem(${index})">新增小項</button>` : ''}
+                            ${canEdit ? `<button type="button" class="btn btn-secondary" onclick="window.addWorkItem(${index})">新增小項</button>` : ''}
                         </div>
                     </div>
                 `;
@@ -1261,7 +1349,9 @@
             const container = document.getElementById('comprehensivePerformanceCategories');
             const categories = window.currentTemplate.comprehensivePerformance || [];
             const isAdmin = currentUser.role === 'admin';
-            const disabled = !isAdmin ? 'disabled' : '';
+            const isLocked = window.currentTemplateLocked || false;
+            const canEdit = isAdmin && !isLocked;
+            const disabled = !canEdit ? 'disabled' : '';
             
             let html = '';
             categories.forEach((cat, index) => {
@@ -1272,17 +1362,17 @@
                                    style="flex: 1; margin-right: 10px; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px;" ${disabled}>
                             <input type="number" value="${cat.weight}" onchange="window.updateCompCategoryWeight(${index}, this.value)" 
                                    placeholder="佔比%" min="0" max="100" style="width: 80px; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px;" ${disabled}>
-                            ${isAdmin ? `<button type="button" class="btn btn-danger" onclick="window.removeCompCategory(${index})" style="margin-left: 10px;">刪除大類</button>` : ''}
+                            ${canEdit ? `<button type="button" class="btn btn-danger" onclick="window.removeCompCategory(${index})" style="margin-left: 10px;">刪除大類</button>` : ''}
                         </div>
                         <div>
                             ${cat.items.map((item, itemIndex) => `
                                 <div style="display: flex; margin-bottom: 5px;">
-                                    <input type="text" value="${item}" onchange="window.updateCompItem(${index}, ${itemIndex}, this.value)"
-                                           style="flex: 1; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px; margin-right: 5px;" ${disabled}>
-                                    ${isAdmin ? `<button type="button" class="btn btn-danger" onclick="window.removeCompItem(${index}, ${itemIndex})">刪除</button>` : ''}
+                                    <textarea onchange="window.updateCompItem(${index}, ${itemIndex}, this.value)"
+                                           style="flex: 1; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px; margin-right: 5px; min-height: 60px; resize: vertical; font-family: inherit;" ${disabled}>${item}</textarea>
+                                    ${canEdit ? `<button type="button" class="btn btn-danger" onclick="window.removeCompItem(${index}, ${itemIndex})" style="align-self: flex-start;">刪除</button>` : ''}
                                 </div>
                             `).join('')}
-                            ${isAdmin ? `<button type="button" class="btn btn-secondary" onclick="window.addCompItem(${index})">新增小項</button>` : ''}
+                            ${canEdit ? `<button type="button" class="btn btn-secondary" onclick="window.addCompItem(${index})">新增小項</button>` : ''}
                         </div>
                     </div>
                 `;
@@ -1296,15 +1386,17 @@
             const container = document.getElementById('learningItems');
             const items = window.currentTemplate.personalLearning.items || [];
             const isAdmin = currentUser.role === 'admin';
-            const disabled = !isAdmin ? 'disabled' : '';
+            const isLocked = window.currentTemplateLocked || false;
+            const canEdit = isAdmin && !isLocked;
+            const disabled = !canEdit ? 'disabled' : '';
             
             let html = '';
             items.forEach((item, index) => {
                 html += `
                     <div style="display: flex; margin-bottom: 10px;">
-                        <input type="text" value="${item}" onchange="window.updateLearningItem(${index}, this.value)"
-                               style="flex: 1; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px; margin-right: 5px;" ${disabled}>
-                        ${isAdmin ? `<button type="button" class="btn btn-danger" onclick="window.removeLearningItem(${index})">刪除</button>` : ''}
+                        <textarea onchange="window.updateLearningItem(${index}, this.value)"
+                               style="flex: 1; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px; margin-right: 5px; min-height: 60px; resize: vertical; font-family: inherit;" ${disabled}>${item}</textarea>
+                        ${canEdit ? `<button type="button" class="btn btn-danger" onclick="window.removeLearningItem(${index})" style="align-self: flex-start;">刪除</button>` : ''}
                     </div>
                 `;
             });
@@ -1427,6 +1519,11 @@
 
         // 複製上月範本
         window.copyPreviousMonthTemplate = async function() {
+            if (window.currentTemplateLocked) {
+                alert('範本已鎖定,無法複製上月範本!');
+                return;
+            }
+            
             const employeeId = document.getElementById('templateEmployee').value;
             const month = document.getElementById('templateMonth').value;
             
@@ -1469,6 +1566,11 @@
 
         // 清空範本
         window.clearTemplate = function() {
+            if (window.currentTemplateLocked) {
+                alert('範本已鎖定,無法清空!');
+                return;
+            }
+            
             if (confirm('確定要清空目前的範本嗎?')) {
                 window.currentTemplate = {
                     workPerformance: [],
@@ -1725,14 +1827,23 @@
                     
                     // 收集所有主管對這個小項的評分
                     evaluations.forEach(evaluation => {
-                        const score1 = parseFloat(evaluation.scores[`${itemKey}_1`]);
-                        const score2 = parseFloat(evaluation.scores[`${itemKey}_2`]);
+                        const score1Value = evaluation.scores[`${itemKey}_1`];
+                        const score2Value = evaluation.scores[`${itemKey}_2`];
+                        
+                        // 檢查欄位是否有填寫(包含0分)
+                        const hasScore1 = score1Value !== undefined && score1Value !== null && score1Value !== '';
+                        const hasScore2 = score2Value !== undefined && score2Value !== null && score2Value !== '';
                         
                         // 如果兩個欄位都有填寫
-                        if (!isNaN(score1) && !isNaN(score2)) {
-                            // 先平均兩個欄位
-                            const avgScore = (score1 + score2) / 2;
-                            allScores.push(avgScore);
+                        if (hasScore1 && hasScore2) {
+                            const score1 = parseFloat(score1Value);
+                            const score2 = parseFloat(score2Value);
+                            
+                            if (!isNaN(score1) && !isNaN(score2)) {
+                                // 先平均兩個欄位
+                                const avgScore = (score1 + score2) / 2;
+                                allScores.push(avgScore);
+                            }
                         }
                     });
                     
@@ -1799,12 +1910,21 @@
                 const allScores = [];
                 
                 evaluations.forEach(evaluation => {
-                    const score1 = parseFloat(evaluation.scores[`${itemKey}_1`]);
-                    const score2 = parseFloat(evaluation.scores[`${itemKey}_2`]);
+                    const score1Value = evaluation.scores[`${itemKey}_1`];
+                    const score2Value = evaluation.scores[`${itemKey}_2`];
                     
-                    if (!isNaN(score1) && !isNaN(score2)) {
-                        const avgScore = (score1 + score2) / 2;
-                        allScores.push(avgScore);
+                    // 檢查欄位是否有填寫(包含0分)
+                    const hasScore1 = score1Value !== undefined && score1Value !== null && score1Value !== '';
+                    const hasScore2 = score2Value !== undefined && score2Value !== null && score2Value !== '';
+                    
+                    if (hasScore1 && hasScore2) {
+                        const score1 = parseFloat(score1Value);
+                        const score2 = parseFloat(score2Value);
+                        
+                        if (!isNaN(score1) && !isNaN(score2)) {
+                            const avgScore = (score1 + score2) / 2;
+                            allScores.push(avgScore);
+                        }
                     }
                 });
                 
@@ -1891,7 +2011,7 @@
                                     <td class="${diffClass}">${diffText}</td>
                                     <td>
                                         <button class="btn btn-secondary" onclick="window.viewEvaluationDetails('${emp.userId}', '${period}')">查看明細</button>
-                                        <button class="btn btn-danger" onclick="window.returnEvaluations('${emp.userId}', '${period}')">退單</button>
+                                        <button class="btn btn-danger" onclick="window.returnEvaluations('${emp.userId}', '${period}')">全部退單</button>
                                     </td>
                                 </tr>
                             </tbody>
@@ -1922,23 +2042,52 @@
                 evaluatorNames[user.userId] = user.name;
             });
             
-            let detailsHtml = '<h3>評分明細</h3>';
+            // 取得員工名稱
+            const employeeDoc = await getDoc(doc(db, 'users', employeeId));
+            const employeeName = employeeDoc.exists() ? employeeDoc.data().name : employeeId;
+            
+            let detailsHtml = `<h3>${employeeName} - ${period.slice(0,4)}年${period.slice(4)}月 評分明細</h3>`;
             
             evaluationsSnapshot.forEach(doc => {
                 const evaluation = doc.data();
                 const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
                 
+                // 顯示所有評分項目
+                let scoresHtml = '<div style="max-height: 300px; overflow-y: auto; background: white; padding: 10px; border-radius: 5px; margin-top: 10px;">';
+                scoresHtml += '<table style="width: 100%; font-size: 0.9em;"><thead><tr><th>評分項目</th><th>執行力</th><th>錯誤率</th></tr></thead><tbody>';
+                
+                for (const [key, value] of Object.entries(evaluation.scores)) {
+                    if (key.endsWith('_1')) {
+                        const baseKey = key.slice(0, -2);
+                        const score1 = value;
+                        const score2 = evaluation.scores[`${baseKey}_2`] || '';
+                        scoresHtml += `<tr><td style="font-size: 0.8em;">${baseKey}</td><td>${score1}</td><td>${score2}</td></tr>`;
+                    }
+                }
+                
+                scoresHtml += '</tbody></table></div>';
+                
                 detailsHtml += `
-                    <div style="background: #f7fafc; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
-                        <h4>${evaluatorName} 的評分</h4>
+                    <div style="background: #f7fafc; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #667eea;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h4 style="margin: 0;">${evaluatorName} 的評分</h4>
+                            <button class="btn btn-danger" onclick="window.returnSingleEvaluation('${evaluation.evaluationId}', '${evaluatorName}', '${employeeId}', '${period}')">
+                                🔄 退回此評分
+                            </button>
+                        </div>
                         <p><strong>評語:</strong> ${evaluation.comment || '無'}</p>
                         <p><strong>送出時間:</strong> ${new Date(evaluation.submittedAt).toLocaleString('zh-TW')}</p>
+                        <details>
+                            <summary style="cursor: pointer; color: #667eea; margin-top: 10px;"><strong>📊 查看所有評分項目</strong></summary>
+                            ${scoresHtml}
+                        </details>
                     </div>
                 `;
             });
             
             const modal = document.createElement('div');
             modal.className = 'modal active';
+            modal.id = 'detailsModal';
             modal.innerHTML = `
                 <div class="modal-content">
                     <span class="close-modal" onclick="this.closest('.modal').remove()">&times;</span>
@@ -1947,6 +2096,29 @@
             `;
             
             document.body.appendChild(modal);
+        };
+
+        // 退回單一主管的評分
+        window.returnSingleEvaluation = async function(evaluationId, evaluatorName, employeeId, period) {
+            if (!confirm(`確定要退回 ${evaluatorName} 的評分嗎?\n\n退回後該主管可以重新修改並送出。`)) {
+                return;
+            }
+            
+            await updateDoc(doc(db, 'evaluations', evaluationId), {
+                status: 'draft',
+                returnedAt: new Date().toISOString()
+            });
+            
+            alert(`已退回 ${evaluatorName} 的評分!`);
+            
+            // 關閉彈窗
+            const modal = document.getElementById('detailsModal');
+            if (modal) {
+                modal.remove();
+            }
+            
+            // 重新載入統計
+            window.loadStatistics();
         };
 
         // 退單功能
