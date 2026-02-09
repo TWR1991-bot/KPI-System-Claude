@@ -905,16 +905,18 @@
                     </div>
                     <div class="content">
                         <div class="tabs">
-                            <button class="tab active" onclick="window.switchTab(0)">人員管理</button>
-                            <button class="tab" onclick="window.switchTab(1)">考核統計表</button>
-                            <button class="tab" onclick="window.switchTab(2)">職等比對圖表</button>
-                            <button class="tab" onclick="window.switchTab(3)">編輯考核表</button>
+                            ${currentUser.role === 'admin' ? '<button class="tab active" onclick="window.switchTab(0)">人員管理</button>' : ''}
+                            <button class="tab ${currentUser.role === 'admin' ? '' : 'active'}" onclick="window.switchTab(${currentUser.role === 'admin' ? '1' : '0'})">考核統計表</button>
+                            <button class="tab" onclick="window.switchTab(${currentUser.role === 'admin' ? '2' : '1'})">職等比對圖表</button>
+                            <button class="tab" onclick="window.switchTab(${currentUser.role === 'admin' ? '3' : '2'})">編輯考核表</button>
                         </div>
                         
+                        ${currentUser.role === 'admin' ? `
                         <div id="tab0" class="tab-content active">
                             ${renderUserManagement()}
                         </div>
-                        <div id="tab1" class="tab-content">
+                        ` : ''}
+                        <div id="tab${currentUser.role === 'admin' ? '1' : '0'}" class="tab-content ${currentUser.role === 'admin' ? '' : 'active'}">
                             <h2>考核統計表</h2>
                             <div class="form-group" style="max-width: 400px;">
                                 <label>選擇月份</label>
@@ -927,7 +929,7 @@
                                 <div class="loading">載入中...</div>
                             </div>
                         </div>
-                        <div id="tab2" class="tab-content">
+                        <div id="tab${currentUser.role === 'admin' ? '2' : '1'}" class="tab-content">
                             <h2>職等比對圖表</h2>
                             <div class="form-group" style="max-width: 400px;">
                                 <label>選擇年度</label>
@@ -937,14 +939,16 @@
                                 <div class="loading">載入中...</div>
                             </div>
                         </div>
-                        <div id="tab3" class="tab-content">
+                        <div id="tab${currentUser.role === 'admin' ? '3' : '2'}" class="tab-content">
                             ${renderTemplateEditor()}
                         </div>
                     </div>
                 </div>
             `;
             
-            loadUsersList();
+            if (currentUser.role === 'admin') {
+                loadUsersList();
+            }
             loadTemplateEmployees();
             
             // 設定當前月份並自動載入統計資料
@@ -997,7 +1001,7 @@
                 usersMap[user.userId] = user.name;
             });
             
-            let html = '<table><thead><tr><th>帳號</th><th>姓名</th><th>職等</th><th>角色</th><th>所屬主管</th><th>操作</th></tr></thead><tbody>';
+            let html = '<table><thead><tr><th>帳號</th><th>姓名</th><th>職等</th><th>類別</th><th>角色</th><th>所屬主管</th><th>操作</th></tr></thead><tbody>';
             
             usersSnapshot.forEach(doc => {
                 const user = doc.data();
@@ -1005,6 +1009,7 @@
                                 user.role === 'manager' ? '管理職主管' : 
                                 user.role === 'staff' ? '一般主管' : '一般職員';
                 const levelText = user.level || '無';
+                const categoryText = user.category === 'external' ? '外勤' : '內勤';
                 
                 // 取得所屬主管名稱
                 let evaluatorsText = '無';
@@ -1017,6 +1022,7 @@
                         <td>${user.userId}</td>
                         <td>${user.name}</td>
                         <td>${levelText}</td>
+                        <td>${categoryText}</td>
                         <td>${roleText}</td>
                         <td>${evaluatorsText}</td>
                         <td>
@@ -1076,6 +1082,13 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label>類別</label>
+                            <select id="newUserCategory" required>
+                                <option value="internal">內勤</option>
+                                <option value="external">外勤</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label>角色</label>
                             <select id="newUserRole" required>
                                 <option value="employee">一般職員 (無法登入系統)</option>
@@ -1107,6 +1120,7 @@
                 const name = document.getElementById('newUserName').value;
                 const password = document.getElementById('newUserPassword').value;
                 const level = document.getElementById('newUserLevel').value;
+                const category = document.getElementById('newUserCategory').value;
                 const role = document.getElementById('newUserRole').value;
                 
                 // 取得所選的主管
@@ -1125,6 +1139,7 @@
                     name: name,
                     password: password,
                     level: level || 'L5',
+                    category: category,
                     role: role,
                     evaluators: evaluators
                 });
@@ -1894,6 +1909,13 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label>類別</label>
+                            <select id="editUserCategory" required>
+                                <option value="internal" ${!userData.category || userData.category === 'internal' ? 'selected' : ''}>內勤</option>
+                                <option value="external" ${userData.category === 'external' ? 'selected' : ''}>外勤</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label>角色</label>
                             <select id="editUserRole" required ${userId === 'Admin01' ? 'disabled' : ''}>
                                 <option value="employee" ${userData.role === 'employee' ? 'selected' : ''}>一般職員 (無法登入系統)</option>
@@ -1925,6 +1947,7 @@
                 const name = document.getElementById('editUserName').value;
                 const password = document.getElementById('editUserPassword').value;
                 const level = document.getElementById('editUserLevel').value;
+                const category = document.getElementById('editUserCategory').value;
                 const role = userId === 'Admin01' ? 'admin' : document.getElementById('editUserRole').value;
                 
                 // 取得所選的主管
@@ -1934,6 +1957,7 @@
                 const updateData = {
                     name: name,
                     level: level || 'L5',
+                    category: category,
                     role: role,
                     evaluators: evaluators
                 };
@@ -2695,61 +2719,110 @@
             const container = document.getElementById('chartsContainer');
             container.innerHTML = '<div class="loading">載入中...</div>';
             
-            // 取得所有使用者並按職等分組
+            // 取得所有使用者並按職等和類別分組
             const usersSnapshot = await getDocs(collection(db, 'users'));
-            const levelGroups = {};
+            const levelGroups = {
+                internal: {}, // 內勤
+                external: {}  // 外勤
+            };
             
             usersSnapshot.forEach(doc => {
                 const user = doc.data();
                 // 排除 L5 和無職等的使用者
                 if (user.level && user.level !== 'L5' && user.level !== '' && ['L1', 'L2', 'L3', 'L4'].includes(user.level)) {
-                    if (!levelGroups[user.level]) {
-                        levelGroups[user.level] = [];
+                    const category = user.category || 'internal'; // 預設為內勤
+                    
+                    if (!levelGroups[category][user.level]) {
+                        levelGroups[category][user.level] = [];
                     }
-                    levelGroups[user.level].push(user);
+                    levelGroups[category][user.level].push(user);
                 }
             });
             
-            if (Object.keys(levelGroups).length === 0) {
+            // 檢查是否有資料
+            const hasInternalData = Object.keys(levelGroups.internal).length > 0;
+            const hasExternalData = Object.keys(levelGroups.external).length > 0;
+            
+            if (!hasInternalData && !hasExternalData) {
                 container.innerHTML = '<p style="color: #a0aec0;">無職等資料</p>';
                 return;
             }
             
-            // 為每個職等生成圖表
             let chartsHtml = '';
+            const levelOrder = ['L1', 'L2', 'L3', 'L4'];
             
-            for (const [level, employees] of Object.entries(levelGroups)) {
-                const chartId = `chart_${level}`;
-                chartsHtml += `
-                    <div class="chart-container">
-                        <h3 class="chart-title">${level} 職等年度績效比對</h3>
-                        <canvas id="${chartId}" style="max-height: 400px;"></canvas>
-                    </div>
-                `;
+            // 內勤圖表
+            if (hasInternalData) {
+                chartsHtml += '<h3 style="margin-top: 30px; margin-bottom: 20px; color: #2d3748; border-bottom: 2px solid #667eea; padding-bottom: 10px;">📊 內勤人員</h3>';
+                
+                for (const level of levelOrder) {
+                    if (levelGroups.internal[level]) {
+                        const chartId = `chart_internal_${level}`;
+                        chartsHtml += `
+                            <div class="chart-container">
+                                <h3 class="chart-title">${level} 職等年度績效比對 (內勤)</h3>
+                                <canvas id="${chartId}" style="max-height: 400px;"></canvas>
+                            </div>
+                        `;
+                    }
+                }
+            }
+            
+            // 外勤圖表
+            if (hasExternalData) {
+                chartsHtml += '<h3 style="margin-top: 30px; margin-bottom: 20px; color: #2d3748; border-bottom: 2px solid #38b2ac; padding-bottom: 10px;">📊 外勤人員</h3>';
+                
+                for (const level of levelOrder) {
+                    if (levelGroups.external[level]) {
+                        const chartId = `chart_external_${level}`;
+                        chartsHtml += `
+                            <div class="chart-container">
+                                <h3 class="chart-title">${level} 職等年度績效比對 (外勤)</h3>
+                                <canvas id="${chartId}" style="max-height: 400px;"></canvas>
+                            </div>
+                        `;
+                    }
+                }
             }
             
             container.innerHTML = chartsHtml;
             
-            // 渲染每個圖表
-            for (const [level, employees] of Object.entries(levelGroups)) {
-                await renderLevelChart(level, employees, year);
+            // 渲染內勤圖表
+            if (hasInternalData) {
+                for (const level of levelOrder) {
+                    if (levelGroups.internal[level]) {
+                        await renderLevelChart(`internal_${level}`, levelGroups.internal[level], year);
+                    }
+                }
+            }
+            
+            // 渲染外勤圖表
+            if (hasExternalData) {
+                for (const level of levelOrder) {
+                    if (levelGroups.external[level]) {
+                        await renderLevelChart(`external_${level}`, levelGroups.external[level], year);
+                    }
+                }
             }
         };
 
         // 渲染職等圖表
-        async function renderLevelChart(level, employees, year) {
-            const chartId = `chart_${level}`;
+        async function renderLevelChart(chartKey, employees, year) {
+            const chartId = `chart_${chartKey}`;
             const canvas = document.getElementById(chartId);
             if (!canvas) return;
             
             const ctx = canvas.getContext('2d');
+            
+            // 從 chartKey 中提取真正的職等 (例如從 "internal_L1" 提取 "L1")
+            const actualLevel = chartKey.includes('_') ? chartKey.split('_')[1] : chartKey;
             
             // 準備資料
             const months = [];
             const datasets = [];
             
             // 根據職等決定要顯示哪些月份
-            if (level === 'L1') {
+            if (actualLevel === 'L1') {
                 // L1 顯示全年12個月
                 for (let m = 1; m <= 12; m++) {
                     months.push(`${m}月`);
@@ -2771,7 +2844,7 @@
                 const scores = [];
                 
                 // 取得該員工每個月的分數
-                for (let m of (level === 'L1' ? [1,2,3,4,5,6,7,8,9,10,11,12] : [3,5,9,12])) {
+                for (let m of (actualLevel === 'L1' ? [1,2,3,4,5,6,7,8,9,10,11,12] : [3,5,9,12])) {
                     const period = `${year}${String(m).padStart(2, '0')}`;
                     const employeeScores = await calculateEmployeeScores(employee.userId, period);
                     
