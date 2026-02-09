@@ -672,13 +672,96 @@
         function renderEvaluationForm(template, savedScores, isDisabled) {
             let html = '';
             
-            // 工作表現
-            if (template.workPerformance) {
-                html += '<div class="category-section"><h3 class="category-title">工作表現</h3>';
-                template.workPerformance.forEach((category, catIndex) => {
-                    html += `<h4 style="margin: 15px 0 10px 0;">${category.name} (佔比: ${category.weight}%)</h4>`;
-                    category.items.forEach((item, itemIndex) => {
-                        const itemKey = `work_${catIndex}_${itemIndex}`;
+            // 判斷範本類型
+            if (template.templateType === 'flat') {
+                // L3、L4 扁平化結構 - 只有一個評分欄位
+                if (template.categories) {
+                    template.categories.forEach((category, catIndex) => {
+                        html += `<div class="category-section">`;
+                        html += `<h3 class="category-title">${category.name} (佔比: ${category.weight}%)</h3>`;
+                        
+                        category.items.forEach((item, itemIndex) => {
+                            const itemKey = `flat_${catIndex}_${itemIndex}`;
+                            const score = savedScores[`${itemKey}`] || '';
+                            
+                            html += `
+                                <div class="item-row" style="grid-template-columns: 2fr 1fr;">
+                                    <div class="item-name">${item}</div>
+                                    <div class="score-input">
+                                        <label>評分 (0-5分)</label>
+                                        <input type="number" name="${itemKey}" min="0" max="5" step="0.1" value="${score}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
+                                        <div style="font-size: 0.75em; color: #718096; margin-top: 4px;">無規劃[0] 馬虎[1] 部分執行[2~3] 完整執行[4~5]</div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        html += '</div>';
+                    });
+                }
+            } else {
+                // L1、L2 結構化 - 兩個評分欄位
+                // 工作表現
+                if (template.workPerformance) {
+                    html += '<div class="category-section"><h3 class="category-title">工作表現</h3>';
+                    template.workPerformance.forEach((category, catIndex) => {
+                        html += `<h4 style="margin: 15px 0 10px 0;">${category.name} (佔比: ${category.weight}%)</h4>`;
+                        category.items.forEach((item, itemIndex) => {
+                            const itemKey = `work_${catIndex}_${itemIndex}`;
+                            const score1 = savedScores[`${itemKey}_1`] || '';
+                            const score2 = savedScores[`${itemKey}_2`] || '';
+                            
+                            html += `
+                                <div class="item-row">
+                                    <div class="item-name">${item}</div>
+                                    <div class="score-input">
+                                        <label>執行力與準時性</label>
+                                        <input type="number" name="${itemKey}_1" min="0" max="5" step="0.1" value="${score1}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
+                                    </div>
+                                    <div class="score-input">
+                                        <label>錯誤率與專業性</label>
+                                        <input type="number" name="${itemKey}_2" min="0" max="5" step="0.1" value="${score2}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    });
+                    html += '</div>';
+                }
+                
+                // 綜合表現
+                if (template.comprehensivePerformance) {
+                    html += '<div class="category-section"><h3 class="category-title">綜合表現</h3>';
+                    template.comprehensivePerformance.forEach((category, catIndex) => {
+                        html += `<h4 style="margin: 15px 0 10px 0;">${category.name} (佔比: ${category.weight}%)</h4>`;
+                        category.items.forEach((item, itemIndex) => {
+                            const itemKey = `comp_${catIndex}_${itemIndex}`;
+                            const score1 = savedScores[`${itemKey}_1`] || '';
+                            const score2 = savedScores[`${itemKey}_2`] || '';
+                            
+                            html += `
+                                <div class="item-row">
+                                    <div class="item-name">${item}</div>
+                                    <div class="score-input">
+                                        <label>執行力與準時性</label>
+                                        <input type="number" name="${itemKey}_1" min="0" max="5" step="0.1" value="${score1}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
+                                    </div>
+                                    <div class="score-input">
+                                        <label>錯誤率與專業性</label>
+                                        <input type="number" name="${itemKey}_2" min="0" max="5" step="0.1" value="${score2}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    });
+                    html += '</div>';
+                }
+                
+                // 個人學習
+                if (template.personalLearning) {
+                    html += '<div class="category-section"><h3 class="category-title">個人學習</h3>';
+                    template.personalLearning.items.forEach((item, itemIndex) => {
+                        const itemKey = `learn_${itemIndex}`;
                         const score1 = savedScores[`${itemKey}_1`] || '';
                         const score2 = savedScores[`${itemKey}_2`] || '';
                         
@@ -696,61 +779,8 @@
                             </div>
                         `;
                     });
-                });
-                html += '</div>';
-            }
-            
-            // 綜合表現
-            if (template.comprehensivePerformance) {
-                html += '<div class="category-section"><h3 class="category-title">綜合表現</h3>';
-                template.comprehensivePerformance.forEach((category, catIndex) => {
-                    html += `<h4 style="margin: 15px 0 10px 0;">${category.name} (佔比: ${category.weight}%)</h4>`;
-                    category.items.forEach((item, itemIndex) => {
-                        const itemKey = `comp_${catIndex}_${itemIndex}`;
-                        const score1 = savedScores[`${itemKey}_1`] || '';
-                        const score2 = savedScores[`${itemKey}_2`] || '';
-                        
-                        html += `
-                            <div class="item-row">
-                                <div class="item-name">${item}</div>
-                                <div class="score-input">
-                                    <label>執行力與準時性</label>
-                                    <input type="number" name="${itemKey}_1" min="0" max="5" step="0.1" value="${score1}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
-                                </div>
-                                <div class="score-input">
-                                    <label>錯誤率與專業性</label>
-                                    <input type="number" name="${itemKey}_2" min="0" max="5" step="0.1" value="${score2}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
-                                </div>
-                            </div>
-                        `;
-                    });
-                });
-                html += '</div>';
-            }
-            
-            // 個人學習
-            if (template.personalLearning) {
-                html += '<div class="category-section"><h3 class="category-title">個人學習</h3>';
-                template.personalLearning.items.forEach((item, itemIndex) => {
-                    const itemKey = `learn_${itemIndex}`;
-                    const score1 = savedScores[`${itemKey}_1`] || '';
-                    const score2 = savedScores[`${itemKey}_2`] || '';
-                    
-                    html += `
-                        <div class="item-row">
-                            <div class="item-name">${item}</div>
-                            <div class="score-input">
-                                <label>執行力與準時性</label>
-                                <input type="number" name="${itemKey}_1" min="0" max="5" step="0.1" value="${score1}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
-                            </div>
-                            <div class="score-input">
-                                <label>錯誤率與專業性</label>
-                                <input type="number" name="${itemKey}_2" min="0" max="5" step="0.1" value="${score2}" ${isDisabled ? 'disabled' : ''} oninput="window.validateScore(this)">
-                            </div>
-                        </div>
-                    `;
-                });
-                html += '</div>';
+                    html += '</div>';
+                }
             }
             
             return html;
@@ -1164,6 +1194,16 @@
                 return;
             }
             
+            // 取得員工資訊(包含職等)
+            const employeeDoc = await getDoc(doc(db, 'users', employeeId));
+            if (!employeeDoc.exists()) {
+                alert('找不到員工資料');
+                return;
+            }
+            
+            const employeeData = employeeDoc.data();
+            const employeeLevel = employeeData.level || '';
+            
             const period = month.replace('-', '');
             const templateId = `${employeeId}_${period}`;
             
@@ -1225,14 +1265,20 @@
             if (templateDoc.exists()) {
                 // 載入現有範本
                 const template = templateDoc.data();
-                renderTemplateForm(template, employeeId, period, hasEvaluations, evaluationWarning);
+                renderTemplateForm(template, employeeId, period, employeeLevel, hasEvaluations, evaluationWarning);
             } else {
-                // 建立新範本
-                renderTemplateForm({
+                // 建立新範本 - 根據職等決定初始結構
+                const initialTemplate = (employeeLevel === 'L3' || employeeLevel === 'L4') ? {
+                    categories: [], // L3、L4 使用扁平化結構
+                    templateType: 'flat'
+                } : {
                     workPerformance: [],
                     comprehensivePerformance: [],
-                    personalLearning: { weight: 0, items: [] }
-                }, employeeId, period, hasEvaluations, evaluationWarning);
+                    personalLearning: { weight: 0, items: [] },
+                    templateType: 'structured'
+                };
+                
+                renderTemplateForm(initialTemplate, employeeId, period, employeeLevel, hasEvaluations, evaluationWarning);
             }
         };
 
@@ -1264,47 +1310,88 @@
         };
 
         // 渲染範本編輯表單
-        function renderTemplateForm(template, employeeId, period, isLocked = false, lockWarning = '') {
+        function renderTemplateForm(template, employeeId, period, employeeLevel, isLocked = false, lockWarning = '') {
             const editorDiv = document.getElementById('templateEditor');
             const isAdmin = currentUser.role === 'admin';
-            const canEdit = isAdmin && !isLocked; // 只有管理員且未鎖定才能編輯
+            const canEdit = isAdmin && !isLocked;
             const disabled = !canEdit ? 'disabled' : '';
             
-            editorDiv.innerHTML = `
-                ${lockWarning}
-                <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin-top: 20px;">
-                    <h3>工作表現</h3>
-                    <div id="workPerformanceCategories"></div>
-                    ${canEdit ? '<button type="button" class="btn btn-primary" onclick="window.addWorkCategory()">新增大類</button>' : ''}
-                    
-                    <h3 style="margin-top: 30px;">綜合表現</h3>
-                    <div id="comprehensivePerformanceCategories"></div>
-                    ${canEdit ? '<button type="button" class="btn btn-primary" onclick="window.addCompCategory()">新增大類</button>' : ''}
-                    
-                    <h3 style="margin-top: 30px;">個人學習</h3>
-                    <div class="form-group">
-                        <label>佔比 (%)</label>
-                        <input type="number" id="learningWeight" value="${template.personalLearning.weight || 0}" min="0" max="100" ${disabled}>
-                    </div>
-                    <div id="learningItems"></div>
-                    ${canEdit ? '<button type="button" class="btn btn-primary" onclick="window.addLearningItem()">新增學習項目</button>' : ''}
-                    
-                    ${canEdit ? `
-                    <div style="margin-top: 30px; text-align: right;">
-                        <button type="button" class="btn btn-success" onclick="window.saveTemplate('${employeeId}', '${period}')">儲存範本</button>
-                    </div>
-                    ` : ''}
-                </div>
-            `;
+            // 判斷範本類型
+            const isFlat = (employeeLevel === 'L3' || employeeLevel === 'L4') || template.templateType === 'flat';
             
             // 儲存當前範本到全域變數
             window.currentTemplate = template;
             window.currentTemplateLocked = isLocked;
+            window.currentTemplateType = isFlat ? 'flat' : 'structured';
+            window.currentEmployeeLevel = employeeLevel;
             
-            // 渲染現有資料
-            renderWorkCategories();
-            renderCompCategories();
-            renderLearningItems();
+            if (isFlat) {
+                // L3、L4 扁平化結構
+                editorDiv.innerHTML = `
+                    ${lockWarning}
+                    <div style="background: #e6f7ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #1890ff;">
+                        <strong>📋 ${employeeLevel} 職等範本</strong> - 扁平化結構(大項 → 小項)
+                    </div>
+                    <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin-top: 20px;">
+                        <h3>評分大項</h3>
+                        <div id="flatCategories"></div>
+                        ${canEdit ? '<button type="button" class="btn btn-primary" onclick="window.addFlatCategory()">新增大項</button>' : ''}
+                        
+                        ${canEdit ? `
+                        <div style="margin-top: 30px; text-align: right;">
+                            <button type="button" class="btn btn-success" onclick="window.saveTemplate('${employeeId}', '${period}')">儲存範本</button>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                // 確保有 categories 屬性
+                if (!window.currentTemplate.categories) {
+                    window.currentTemplate.categories = [];
+                }
+                
+                renderFlatCategories();
+            } else {
+                // L1、L2 結構化(三區塊)
+                editorDiv.innerHTML = `
+                    ${lockWarning}
+                    <div style="background: #e6f7ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #1890ff;">
+                        <strong>📋 ${employeeLevel} 職等範本</strong> - 結構化(工作表現 + 綜合表現 + 個人學習)
+                    </div>
+                    <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin-top: 20px;">
+                        <h3>工作表現</h3>
+                        <div id="workPerformanceCategories"></div>
+                        ${canEdit ? '<button type="button" class="btn btn-primary" onclick="window.addWorkCategory()">新增大類</button>' : ''}
+                        
+                        <h3 style="margin-top: 30px;">綜合表現</h3>
+                        <div id="comprehensivePerformanceCategories"></div>
+                        ${canEdit ? '<button type="button" class="btn btn-primary" onclick="window.addCompCategory()">新增大類</button>' : ''}
+                        
+                        <h3 style="margin-top: 30px;">個人學習</h3>
+                        <div class="form-group">
+                            <label>佔比 (%)</label>
+                            <input type="number" id="learningWeight" value="${template.personalLearning?.weight || 0}" min="0" max="100" ${disabled}>
+                        </div>
+                        <div id="learningItems"></div>
+                        ${canEdit ? '<button type="button" class="btn btn-primary" onclick="window.addLearningItem()">新增學習項目</button>' : ''}
+                        
+                        ${canEdit ? `
+                        <div style="margin-top: 30px; text-align: right;">
+                            <button type="button" class="btn btn-success" onclick="window.saveTemplate('${employeeId}', '${period}')">儲存範本</button>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                // 確保有必要屬性
+                if (!window.currentTemplate.workPerformance) window.currentTemplate.workPerformance = [];
+                if (!window.currentTemplate.comprehensivePerformance) window.currentTemplate.comprehensivePerformance = [];
+                if (!window.currentTemplate.personalLearning) window.currentTemplate.personalLearning = { weight: 0, items: [] };
+                
+                renderWorkCategories();
+                renderCompCategories();
+                renderLearningItems();
+            }
         }
 
         // 渲染工作表現大類
@@ -1404,6 +1491,100 @@
             container.innerHTML = html;
         }
 
+        // ========== L3、L4 扁平化大項管理 ==========
+        
+        // 渲染扁平化大項
+        function renderFlatCategories() {
+            const container = document.getElementById('flatCategories');
+            if (!container) return;
+            
+            const categories = window.currentTemplate.categories || [];
+            const isAdmin = currentUser.role === 'admin';
+            const isLocked = window.currentTemplateLocked || false;
+            const canEdit = isAdmin && !isLocked;
+            const disabled = !canEdit ? 'disabled' : '';
+            
+            let html = '';
+            categories.forEach((cat, index) => {
+                html += `
+                    <div style="background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #667eea;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <input type="text" value="${cat.name}" onchange="window.updateFlatCategoryName(${index}, this.value)" 
+                                   placeholder="大項名稱" style="flex: 1; margin-right: 10px; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px;" ${disabled}>
+                            <input type="number" value="${cat.weight}" onchange="window.updateFlatCategoryWeight(${index}, this.value)" 
+                                   placeholder="佔比%" min="0" max="200" style="width: 100px; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px;" ${disabled}>
+                            ${canEdit ? `<button type="button" class="btn btn-danger" onclick="window.removeFlatCategory(${index})" style="margin-left: 10px;">刪除大項</button>` : ''}
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <strong style="color: #4a5568; font-size: 0.9em;">小項:</strong>
+                        </div>
+                        <div>
+                            ${cat.items.map((item, itemIndex) => `
+                                <div style="display: flex; margin-bottom: 5px; margin-top: 5px;">
+                                    <textarea onchange="window.updateFlatItem(${index}, ${itemIndex}, this.value)"
+                                           style="flex: 1; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px; margin-right: 5px; min-height: 60px; resize: vertical; font-family: inherit;" ${disabled}>${item}</textarea>
+                                    ${canEdit ? `<button type="button" class="btn btn-danger" onclick="window.removeFlatItem(${index}, ${itemIndex})" style="align-self: flex-start;">刪除</button>` : ''}
+                                </div>
+                            `).join('')}
+                            ${canEdit ? `<button type="button" class="btn btn-secondary" onclick="window.addFlatItem(${index})" style="margin-top: 5px;">新增小項</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // 新增扁平化大項
+        window.addFlatCategory = function() {
+            if (!window.currentTemplate.categories) {
+                window.currentTemplate.categories = [];
+            }
+            window.currentTemplate.categories.push({
+                name: '',
+                weight: 0,
+                items: []
+            });
+            renderFlatCategories();
+        };
+        
+        // 刪除扁平化大項
+        window.removeFlatCategory = function(index) {
+            if (confirm('確定要刪除此大項嗎?')) {
+                window.currentTemplate.categories.splice(index, 1);
+                renderFlatCategories();
+            }
+        };
+        
+        // 更新扁平化大項名稱
+        window.updateFlatCategoryName = function(index, value) {
+            window.currentTemplate.categories[index].name = value;
+        };
+        
+        // 更新扁平化大項佔比
+        window.updateFlatCategoryWeight = function(index, value) {
+            window.currentTemplate.categories[index].weight = parseFloat(value) || 0;
+        };
+        
+        // 新增扁平化小項
+        window.addFlatItem = function(catIndex) {
+            window.currentTemplate.categories[catIndex].items.push('');
+            renderFlatCategories();
+        };
+        
+        // 刪除扁平化小項
+        window.removeFlatItem = function(catIndex, itemIndex) {
+            if (confirm('確定要刪除此小項嗎?')) {
+                window.currentTemplate.categories[catIndex].items.splice(itemIndex, 1);
+                renderFlatCategories();
+            }
+        };
+        
+        // 更新扁平化小項
+        window.updateFlatItem = function(catIndex, itemIndex, value) {
+            window.currentTemplate.categories[catIndex].items[itemIndex] = value;
+        };
+
         // 工作表現相關函數
         window.addWorkCategory = function() {
             if (!window.currentTemplate.workPerformance) {
@@ -1500,50 +1681,70 @@
 
         // 儲存範本
         window.saveTemplate = async function(employeeId, period) {
-            const learningWeight = parseFloat(document.getElementById('learningWeight').value) || 0;
-            window.currentTemplate.personalLearning.weight = learningWeight;
-            
-            // 計算總佔比
+            const templateType = window.currentTemplateType;
             let totalWeight = 0;
             
-            // 工作表現佔比
-            if (window.currentTemplate.workPerformance) {
-                window.currentTemplate.workPerformance.forEach(cat => {
-                    totalWeight += parseFloat(cat.weight) || 0;
-                });
+            if (templateType === 'flat') {
+                // L3、L4 扁平化結構
+                if (window.currentTemplate.categories) {
+                    window.currentTemplate.categories.forEach(cat => {
+                        totalWeight += parseFloat(cat.weight) || 0;
+                    });
+                }
+            } else {
+                // L1、L2 結構化
+                const learningWeight = parseFloat(document.getElementById('learningWeight').value) || 0;
+                window.currentTemplate.personalLearning.weight = learningWeight;
+                
+                // 工作表現佔比
+                if (window.currentTemplate.workPerformance) {
+                    window.currentTemplate.workPerformance.forEach(cat => {
+                        totalWeight += parseFloat(cat.weight) || 0;
+                    });
+                }
+                
+                // 綜合表現佔比
+                if (window.currentTemplate.comprehensivePerformance) {
+                    window.currentTemplate.comprehensivePerformance.forEach(cat => {
+                        totalWeight += parseFloat(cat.weight) || 0;
+                    });
+                }
+                
+                // 個人學習佔比
+                totalWeight += learningWeight;
             }
             
-            // 綜合表現佔比
-            if (window.currentTemplate.comprehensivePerformance) {
-                window.currentTemplate.comprehensivePerformance.forEach(cat => {
-                    totalWeight += parseFloat(cat.weight) || 0;
-                });
-            }
-            
-            // 個人學習佔比
-            totalWeight += learningWeight;
-            
-            // 檢查佔比總和
-            if (Math.abs(totalWeight - 100) > 0.01) { // 允許小數點誤差
+            // 檢查佔比總和 - 只警告不阻止
+            if (Math.abs(totalWeight - 100) > 0.01) {
                 const diff = totalWeight - 100;
                 const message = diff > 0 
-                    ? `⚠️ 佔比總和超過 100%\n\n目前總和: ${totalWeight.toFixed(1)}%\n超過: ${diff.toFixed(1)}%\n\n請調整各項佔比!`
-                    : `⚠️ 佔比總和不足 100%\n\n目前總和: ${totalWeight.toFixed(1)}%\n不足: ${Math.abs(diff).toFixed(1)}%\n\n請調整各項佔比!`;
+                    ? `⚠️ 提醒：佔比總和超過 100%\n\n目前總和: ${totalWeight.toFixed(1)}%\n超過: ${diff.toFixed(1)}%\n\n${window.currentEmployeeLevel === 'L4' ? '(L4 允許外加給分)' : ''}\n\n確定要儲存嗎?`
+                    : `⚠️ 提醒：佔比總和不足 100%\n\n目前總和: ${totalWeight.toFixed(1)}%\n不足: ${Math.abs(diff).toFixed(1)}%\n\n確定要儲存嗎?`;
                 
-                alert(message);
-                return;
+                if (!confirm(message)) {
+                    return;
+                }
             }
             
             const templateId = `${employeeId}_${period}`;
             
-            await setDoc(doc(db, 'evaluation_templates', templateId), {
+            // 根據範本類型儲存不同結構
+            const templateData = {
                 employeeId: employeeId,
                 period: period,
-                workPerformance: window.currentTemplate.workPerformance || [],
-                comprehensivePerformance: window.currentTemplate.comprehensivePerformance || [],
-                personalLearning: window.currentTemplate.personalLearning,
+                templateType: templateType,
                 updatedAt: new Date().toISOString()
-            });
+            };
+            
+            if (templateType === 'flat') {
+                templateData.categories = window.currentTemplate.categories || [];
+            } else {
+                templateData.workPerformance = window.currentTemplate.workPerformance || [];
+                templateData.comprehensivePerformance = window.currentTemplate.comprehensivePerformance || [];
+                templateData.personalLearning = window.currentTemplate.personalLearning;
+            }
+            
+            await setDoc(doc(db, 'evaluation_templates', templateId), templateData);
             
             alert('範本儲存成功!');
         };
@@ -1579,17 +1780,28 @@
             
             if (confirm('確定要複製上個月的範本嗎?這會覆蓋目前的設定!')) {
                 const previousTemplate = previousTemplateDoc.data();
-                window.currentTemplate = {
-                    workPerformance: JSON.parse(JSON.stringify(previousTemplate.workPerformance || [])),
-                    comprehensivePerformance: JSON.parse(JSON.stringify(previousTemplate.comprehensivePerformance || [])),
-                    personalLearning: JSON.parse(JSON.stringify(previousTemplate.personalLearning || { weight: 0, items: [] }))
-                };
                 
-                // 更新顯示
-                document.getElementById('learningWeight').value = window.currentTemplate.personalLearning.weight || 0;
-                renderWorkCategories();
-                renderCompCategories();
-                renderLearningItems();
+                // 根據範本類型複製
+                if (previousTemplate.templateType === 'flat') {
+                    window.currentTemplate = {
+                        categories: JSON.parse(JSON.stringify(previousTemplate.categories || [])),
+                        templateType: 'flat'
+                    };
+                    renderFlatCategories();
+                } else {
+                    window.currentTemplate = {
+                        workPerformance: JSON.parse(JSON.stringify(previousTemplate.workPerformance || [])),
+                        comprehensivePerformance: JSON.parse(JSON.stringify(previousTemplate.comprehensivePerformance || [])),
+                        personalLearning: JSON.parse(JSON.stringify(previousTemplate.personalLearning || { weight: 0, items: [] })),
+                        templateType: 'structured'
+                    };
+                    
+                    // 更新顯示
+                    document.getElementById('learningWeight').value = window.currentTemplate.personalLearning.weight || 0;
+                    renderWorkCategories();
+                    renderCompCategories();
+                    renderLearningItems();
+                }
                 
                 alert('已複製上月範本,請記得按「儲存範本」以保存!');
             }
@@ -1603,16 +1815,25 @@
             }
             
             if (confirm('確定要清空目前的範本嗎?')) {
-                window.currentTemplate = {
-                    workPerformance: [],
-                    comprehensivePerformance: [],
-                    personalLearning: { weight: 0, items: [] }
-                };
-                
-                document.getElementById('learningWeight').value = 0;
-                renderWorkCategories();
-                renderCompCategories();
-                renderLearningItems();
+                if (window.currentTemplateType === 'flat') {
+                    window.currentTemplate = {
+                        categories: [],
+                        templateType: 'flat'
+                    };
+                    renderFlatCategories();
+                } else {
+                    window.currentTemplate = {
+                        workPerformance: [],
+                        comprehensivePerformance: [],
+                        personalLearning: { weight: 0, items: [] },
+                        templateType: 'structured'
+                    };
+                    
+                    document.getElementById('learningWeight').value = 0;
+                    renderWorkCategories();
+                    renderCompCategories();
+                    renderLearningItems();
+                }
                 
                 alert('已清空範本');
             }
@@ -1809,35 +2030,46 @@
                 return null;
             }
             
-            // 計算工作表現分數
-            const workScore = calculateCategoryScore(
-                template.workPerformance,
-                evaluations,
-                'work'
-            );
-            
-            // 計算綜合表現分數
-            const compScore = calculateCategoryScore(
-                template.comprehensivePerformance,
-                evaluations,
-                'comp'
-            );
-            
-            // 計算個人學習分數
-            const learningScore = calculateLearningScore(
-                template.personalLearning,
-                evaluations
-            );
-            
-            const totalScore = workScore + compScore + learningScore;
-            
-            return {
-                workScore: workScore,
-                compScore: compScore,
-                learningScore: learningScore,
-                totalScore: totalScore,
-                evaluations: evaluations
-            };
+            // 根據範本類型計算分數
+            if (template.templateType === 'flat') {
+                // L3、L4 扁平化結構
+                const totalScore = calculateFlatScore(template.categories, evaluations);
+                return {
+                    workScore: 0,
+                    compScore: 0,
+                    learningScore: 0,
+                    totalScore: totalScore,
+                    evaluations: evaluations
+                };
+            } else {
+                // L1、L2 結構化
+                const workScore = calculateCategoryScore(
+                    template.workPerformance,
+                    evaluations,
+                    'work'
+                );
+                
+                const compScore = calculateCategoryScore(
+                    template.comprehensivePerformance,
+                    evaluations,
+                    'comp'
+                );
+                
+                const learningScore = calculateLearningScore(
+                    template.personalLearning,
+                    evaluations
+                );
+                
+                const totalScore = workScore + compScore + learningScore;
+                
+                return {
+                    workScore: workScore,
+                    compScore: compScore,
+                    learningScore: learningScore,
+                    totalScore: totalScore,
+                    evaluations: evaluations
+                };
+            }
         }
 
         // 計算分類分數(工作表現/綜合表現)
@@ -1929,6 +2161,87 @@
                     // 調整後的佔比 = 原佔比 + (原佔比/已評分總佔比) × 未評分總佔比
                     const adjustedWeight = cat.weight + (cat.weight / scoredWeight) * unscoredWeight;
                     // 大類得分 = (小項平均分 / 5) × 調整後佔比
+                    const categoryScore = (cat.score / 5) * adjustedWeight;
+                    finalScore += categoryScore;
+                }
+            });
+            
+            return finalScore;
+        }
+
+        // 計算扁平化結構分數(L3、L4)
+        function calculateFlatScore(categories, evaluations) {
+            if (!categories || categories.length === 0) {
+                return 0;
+            }
+            
+            const categoryResults = [];
+            
+            // 計算每個大項的分數
+            categories.forEach((category, catIndex) => {
+                const itemScores = [];
+                
+                category.items.forEach((item, itemIndex) => {
+                    const itemKey = `flat_${catIndex}_${itemIndex}`;
+                    const allScores = [];
+                    
+                    // 收集所有主管對這個小項的評分 (只有一個欄位)
+                    evaluations.forEach(evaluation => {
+                        const scoreValue = evaluation.scores[itemKey];
+                        
+                        // 檢查欄位是否有填寫(包含0分)
+                        const hasScore = scoreValue !== undefined && scoreValue !== null && scoreValue !== '';
+                        
+                        if (hasScore) {
+                            const score = parseFloat(scoreValue);
+                            if (!isNaN(score)) {
+                                allScores.push(score);
+                            }
+                        }
+                    });
+                    
+                    // 計算這個小項的平均分數
+                    if (allScores.length > 0) {
+                        const itemAvg = allScores.reduce((a, b) => a + b, 0) / allScores.length;
+                        itemScores.push(itemAvg);
+                    }
+                });
+                
+                // 如果這個大項有分數
+                if (itemScores.length > 0) {
+                    const categoryAvg = itemScores.reduce((a, b) => a + b, 0) / itemScores.length;
+                    categoryResults.push({
+                        score: categoryAvg,
+                        weight: category.weight,
+                        hasScore: true
+                    });
+                } else {
+                    // 沒有分數但記錄佔比,用於均攤
+                    categoryResults.push({
+                        score: 0,
+                        weight: category.weight,
+                        hasScore: false
+                    });
+                }
+            });
+            
+            // 計算需要均攤的佔比
+            const totalOriginalWeight = categoryResults.reduce((sum, cat) => sum + cat.weight, 0);
+            const scoredWeight = categoryResults.filter(cat => cat.hasScore).reduce((sum, cat) => sum + cat.weight, 0);
+            const unscoredWeight = totalOriginalWeight - scoredWeight;
+            
+            // 如果沒有任何分數
+            if (scoredWeight === 0) {
+                return 0;
+            }
+            
+            // 計算最終分數
+            let finalScore = 0;
+            categoryResults.forEach(cat => {
+                if (cat.hasScore) {
+                    // 調整後的佔比 = 原佔比 + (原佔比/已評分總佔比) × 未評分總佔比
+                    const adjustedWeight = cat.weight + (cat.weight / scoredWeight) * unscoredWeight;
+                    // 大項得分 = (小項平均分 / 5) × 調整後佔比
                     const categoryScore = (cat.score / 5) * adjustedWeight;
                     finalScore += categoryScore;
                 }
@@ -2110,44 +2423,62 @@
                 
                 // 顯示所有評分項目
                 let scoresHtml = '<div style="max-height: 300px; overflow-y: auto; background: white; padding: 10px; border-radius: 5px; margin-top: 10px;">';
-                scoresHtml += '<table style="width: 100%; font-size: 0.9em;"><thead><tr><th>類別</th><th>評分項目</th><th>執行力</th><th>錯誤率</th></tr></thead><tbody>';
                 
                 if (template) {
-                    // 工作表現
-                    if (template.workPerformance) {
-                        template.workPerformance.forEach((category, catIndex) => {
-                            category.items.forEach((item, itemIndex) => {
-                                const itemKey = `work_${catIndex}_${itemIndex}`;
+                    if (template.templateType === 'flat') {
+                        // L3、L4 扁平化結構 - 只有一個評分欄位
+                        scoresHtml += '<table style="width: 100%; font-size: 0.9em;"><thead><tr><th>類別</th><th>評分項目</th><th>評分</th></tr></thead><tbody>';
+                        
+                        if (template.categories) {
+                            template.categories.forEach((category, catIndex) => {
+                                category.items.forEach((item, itemIndex) => {
+                                    const itemKey = `flat_${catIndex}_${itemIndex}`;
+                                    const score = evaluation.scores[itemKey] || '';
+                                    
+                                    scoresHtml += `<tr><td style="font-size: 0.8em;">${category.name}</td><td style="font-size: 0.8em;">${item}</td><td>${score}</td></tr>`;
+                                });
+                            });
+                        }
+                    } else {
+                        // L1、L2 結構化 - 兩個評分欄位
+                        scoresHtml += '<table style="width: 100%; font-size: 0.9em;"><thead><tr><th>類別</th><th>評分項目</th><th>執行力</th><th>錯誤率</th></tr></thead><tbody>';
+                        
+                        // 工作表現
+                        if (template.workPerformance) {
+                            template.workPerformance.forEach((category, catIndex) => {
+                                category.items.forEach((item, itemIndex) => {
+                                    const itemKey = `work_${catIndex}_${itemIndex}`;
+                                    const score1 = evaluation.scores[`${itemKey}_1`] || '';
+                                    const score2 = evaluation.scores[`${itemKey}_2`] || '';
+                                    
+                                    scoresHtml += `<tr><td style="font-size: 0.8em;">工作-${category.name}</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
+                                });
+                            });
+                        }
+                        
+                        // 綜合表現
+                        if (template.comprehensivePerformance) {
+                            template.comprehensivePerformance.forEach((category, catIndex) => {
+                                category.items.forEach((item, itemIndex) => {
+                                    const itemKey = `comp_${catIndex}_${itemIndex}`;
+                                    const score1 = evaluation.scores[`${itemKey}_1`] || '';
+                                    const score2 = evaluation.scores[`${itemKey}_2`] || '';
+                                    
+                                    scoresHtml += `<tr><td style="font-size: 0.8em;">綜合-${category.name}</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
+                                });
+                            });
+                        }
+                        
+                        // 個人學習
+                        if (template.personalLearning && template.personalLearning.items) {
+                            template.personalLearning.items.forEach((item, itemIndex) => {
+                                const itemKey = `learn_${itemIndex}`;
                                 const score1 = evaluation.scores[`${itemKey}_1`] || '';
                                 const score2 = evaluation.scores[`${itemKey}_2`] || '';
                                 
-                                scoresHtml += `<tr><td style="font-size: 0.8em;">工作-${category.name}</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
+                                scoresHtml += `<tr><td style="font-size: 0.8em;">個人學習</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
                             });
-                        });
-                    }
-                    
-                    // 綜合表現
-                    if (template.comprehensivePerformance) {
-                        template.comprehensivePerformance.forEach((category, catIndex) => {
-                            category.items.forEach((item, itemIndex) => {
-                                const itemKey = `comp_${catIndex}_${itemIndex}`;
-                                const score1 = evaluation.scores[`${itemKey}_1`] || '';
-                                const score2 = evaluation.scores[`${itemKey}_2`] || '';
-                                
-                                scoresHtml += `<tr><td style="font-size: 0.8em;">綜合-${category.name}</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
-                            });
-                        });
-                    }
-                    
-                    // 個人學習
-                    if (template.personalLearning && template.personalLearning.items) {
-                        template.personalLearning.items.forEach((item, itemIndex) => {
-                            const itemKey = `learn_${itemIndex}`;
-                            const score1 = evaluation.scores[`${itemKey}_1`] || '';
-                            const score2 = evaluation.scores[`${itemKey}_2`] || '';
-                            
-                            scoresHtml += `<tr><td style="font-size: 0.8em;">個人學習</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
-                        });
+                        }
                     }
                 }
                 
@@ -2267,7 +2598,7 @@
             
             // 建立 CSV 內容
             let csv = '\uFEFF'; // UTF-8 BOM
-            csv += '被評人,主管,大類,小項,執行力與準時性,錯誤率與專業性,評語,送出時間\n';
+            csv += '被評人,主管,大類,小項,評分1,評分2,評語,送出時間\n';
             
             for (const evalDoc of evaluationsSnapshot.docs) {
                 const evaluation = evalDoc.data();
@@ -2283,49 +2614,67 @@
                 if (templateDoc.exists()) {
                     const template = templateDoc.data();
                     
-                    // 工作表現
-                    if (template.workPerformance) {
-                        template.workPerformance.forEach((category, catIndex) => {
-                            category.items.forEach((item, itemIndex) => {
-                                const itemKey = `work_${catIndex}_${itemIndex}`;
+                    if (template.templateType === 'flat') {
+                        // L3、L4 扁平化結構 - 只有一個分數,第二欄留空
+                        if (template.categories) {
+                            template.categories.forEach((category, catIndex) => {
+                                category.items.forEach((item, itemIndex) => {
+                                    const itemKey = `flat_${catIndex}_${itemIndex}`;
+                                    const score = evaluation.scores[itemKey] || '';
+                                    
+                                    const itemName = item.replace(/,/g, '，').replace(/\n/g, ' ').replace(/"/g, '""');
+                                    const categoryName = category.name.replace(/,/g, '，').replace(/"/g, '""');
+                                    
+                                    csv += `"${evaluateeName}","${evaluatorName}","${categoryName}","${itemName}",${score},,"${comment}","${submittedAt}"\n`;
+                                });
+                            });
+                        }
+                    } else {
+                        // L1、L2 結構化 - 兩個分數欄位
+                        // 工作表現
+                        if (template.workPerformance) {
+                            template.workPerformance.forEach((category, catIndex) => {
+                                category.items.forEach((item, itemIndex) => {
+                                    const itemKey = `work_${catIndex}_${itemIndex}`;
+                                    const score1 = evaluation.scores[`${itemKey}_1`] || '';
+                                    const score2 = evaluation.scores[`${itemKey}_2`] || '';
+                                    
+                                    const itemName = item.replace(/,/g, '，').replace(/\n/g, ' ').replace(/"/g, '""');
+                                    const categoryName = category.name.replace(/,/g, '，').replace(/"/g, '""');
+                                    
+                                    csv += `"${evaluateeName}","${evaluatorName}","工作表現-${categoryName}","${itemName}",${score1},${score2},"${comment}","${submittedAt}"\n`;
+                                });
+                            });
+                        }
+                        
+                        // 綜合表現
+                        if (template.comprehensivePerformance) {
+                            template.comprehensivePerformance.forEach((category, catIndex) => {
+                                category.items.forEach((item, itemIndex) => {
+                                    const itemKey = `comp_${catIndex}_${itemIndex}`;
+                                    const score1 = evaluation.scores[`${itemKey}_1`] || '';
+                                    const score2 = evaluation.scores[`${itemKey}_2`] || '';
+                                    
+                                    const itemName = item.replace(/,/g, '，').replace(/\n/g, ' ').replace(/"/g, '""');
+                                    const categoryName = category.name.replace(/,/g, '，').replace(/"/g, '""');
+                                    
+                                    csv += `"${evaluateeName}","${evaluatorName}","綜合表現-${categoryName}","${itemName}",${score1},${score2},"${comment}","${submittedAt}"\n`;
+                                });
+                            });
+                        }
+                        
+                        // 個人學習
+                        if (template.personalLearning && template.personalLearning.items) {
+                            template.personalLearning.items.forEach((item, itemIndex) => {
+                                const itemKey = `learn_${itemIndex}`;
                                 const score1 = evaluation.scores[`${itemKey}_1`] || '';
                                 const score2 = evaluation.scores[`${itemKey}_2`] || '';
                                 
                                 const itemName = item.replace(/,/g, '，').replace(/\n/g, ' ').replace(/"/g, '""');
-                                const categoryName = category.name.replace(/,/g, '，').replace(/"/g, '""');
                                 
-                                csv += `"${evaluateeName}","${evaluatorName}","工作表現-${categoryName}","${itemName}",${score1},${score2},"${comment}","${submittedAt}"\n`;
+                                csv += `"${evaluateeName}","${evaluatorName}","個人學習","${itemName}",${score1},${score2},"${comment}","${submittedAt}"\n`;
                             });
-                        });
-                    }
-                    
-                    // 綜合表現
-                    if (template.comprehensivePerformance) {
-                        template.comprehensivePerformance.forEach((category, catIndex) => {
-                            category.items.forEach((item, itemIndex) => {
-                                const itemKey = `comp_${catIndex}_${itemIndex}`;
-                                const score1 = evaluation.scores[`${itemKey}_1`] || '';
-                                const score2 = evaluation.scores[`${itemKey}_2`] || '';
-                                
-                                const itemName = item.replace(/,/g, '，').replace(/\n/g, ' ').replace(/"/g, '""');
-                                const categoryName = category.name.replace(/,/g, '，').replace(/"/g, '""');
-                                
-                                csv += `"${evaluateeName}","${evaluatorName}","綜合表現-${categoryName}","${itemName}",${score1},${score2},"${comment}","${submittedAt}"\n`;
-                            });
-                        });
-                    }
-                    
-                    // 個人學習
-                    if (template.personalLearning && template.personalLearning.items) {
-                        template.personalLearning.items.forEach((item, itemIndex) => {
-                            const itemKey = `learn_${itemIndex}`;
-                            const score1 = evaluation.scores[`${itemKey}_1`] || '';
-                            const score2 = evaluation.scores[`${itemKey}_2`] || '';
-                            
-                            const itemName = item.replace(/,/g, '，').replace(/\n/g, ' ').replace(/"/g, '""');
-                            
-                            csv += `"${evaluateeName}","${evaluatorName}","個人學習","${itemName}",${score1},${score2},"${comment}","${submittedAt}"\n`;
-                        });
+                        }
                     }
                 }
             }
