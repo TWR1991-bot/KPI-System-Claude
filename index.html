@@ -14,7 +14,7 @@
 
         body {
             font-family: 'Microsoft JhengHei', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #ffffff;
             min-height: 100vh;
             padding: 20px;
         }
@@ -24,12 +24,13 @@
             margin: 0 auto;
             background: white;
             border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 6px rgba(14, 165, 233, 0.1), 0 10px 40px rgba(14, 165, 233, 0.15);
             overflow: hidden;
+            border: 1px solid #e0f2fe;
         }
 
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
             color: white;
             padding: 30px;
             text-align: center;
@@ -39,6 +40,15 @@
         .header h1 {
             font-size: 2em;
             margin-bottom: 10px;
+        }
+        
+        .company-title {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #ecfeff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            letter-spacing: 2px;
         }
 
         .user-info {
@@ -64,14 +74,14 @@
         }
 
         .btn-primary {
-            background: #667eea;
+            background: #0ea5e9;
             color: white;
         }
 
         .btn-primary:hover {
-            background: #5568d3;
+            background: #0284c7;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 5px 15px rgba(8, 145, 178, 0.4);
         }
 
         .btn-success {
@@ -111,7 +121,7 @@
 
         .login-container h2 {
             text-align: center;
-            color: #667eea;
+            color: #0ea5e9;
             margin-bottom: 30px;
         }
 
@@ -142,8 +152,8 @@
         .form-group select:focus,
         .form-group textarea:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #0ea5e9;
+            box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.1);
         }
 
         .form-group input:hover,
@@ -173,8 +183,8 @@
         }
 
         .tab.active {
-            color: #667eea;
-            border-bottom: 3px solid #667eea;
+            color: #0ea5e9;
+            border-bottom: 3px solid #0ea5e9;
             font-weight: bold;
         }
 
@@ -203,7 +213,7 @@
         }
 
         .employee-card:hover {
-            border-color: #667eea;
+            border-color: #0ea5e9;
             transform: translateY(-5px);
             box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
@@ -233,9 +243,9 @@
 
         .category-title {
             font-size: 1.5em;
-            color: #667eea;
+            color: #0ea5e9;
             margin-bottom: 20px;
-            border-bottom: 2px solid #667eea;
+            border-bottom: 2px solid #0ea5e9;
             padding-bottom: 10px;
         }
 
@@ -446,6 +456,7 @@
             app.innerHTML = `
                 <div class="container">
                     <div class="header">
+                        <div class="company-title">何鑫實業 員工績效考核系統</div>
                         <h1>員工考核系統</h1>
                     </div>
                     <div class="login-container">
@@ -527,6 +538,7 @@
             app.innerHTML = `
                 <div class="container">
                     <div class="header">
+                        <div class="company-title">何鑫實業 員工績效考核系統</div>
                         <h1>評分系統</h1>
                         <div class="user-info">
                             <div class="user-name">${currentUser.name}</div>
@@ -896,6 +908,7 @@
             app.innerHTML = `
                 <div class="container">
                     <div class="header">
+                        <div class="company-title">何鑫實業 員工績效考核系統</div>
                         <h1>管理後台</h1>
                         <div class="user-info">
                             <div class="user-name">${currentUser.name}</div>
@@ -1522,7 +1535,7 @@
             let html = '';
             categories.forEach((cat, index) => {
                 html += `
-                    <div style="background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <div style="background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #0ea5e9;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <input type="text" value="${cat.name}" onchange="window.updateFlatCategoryName(${index}, this.value)" 
                                    placeholder="大項名稱" style="flex: 1; margin-right: 10px; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px;" ${disabled}>
@@ -2376,7 +2389,7 @@
                 
                 html += `
                     <div style="background: white; padding: 25px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                        <h3 style="color: #667eea; margin-bottom: 20px;">${emp.name} (${emp.userId}) - ${emp.level}</h3>
+                        <h3 style="color: #0ea5e9; margin-bottom: 20px;">${emp.name} (${emp.userId}) - ${emp.level}</h3>
                         <table style="width: 100%;">
                             <thead>
                                 <tr>
@@ -2509,7 +2522,7 @@
                 scoresHtml += '</tbody></table></div>';
                 
                 detailsHtml += `
-                    <div style="background: #f7fafc; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #667eea;">
+                    <div style="background: #f7fafc; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #0ea5e9;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <h4 style="margin: 0;">${evaluatorName} 的評分</h4>
                             <button class="btn btn-danger" onclick="window.returnSingleEvaluation('${evaluation.evaluationId}', '${evaluatorName}', '${employeeId}', '${period}')">
@@ -2519,7 +2532,7 @@
                         <p><strong>評語:</strong> ${evaluation.comment || '無'}</p>
                         <p><strong>送出時間:</strong> ${new Date(evaluation.submittedAt).toLocaleString('zh-TW')}</p>
                         <details>
-                            <summary style="cursor: pointer; color: #667eea; margin-top: 10px;"><strong>📊 查看所有評分項目</strong></summary>
+                            <summary style="cursor: pointer; color: #0ea5e9; margin-top: 10px;"><strong>📊 查看所有評分項目</strong></summary>
                             ${scoresHtml}
                         </details>
                     </div>
@@ -2753,7 +2766,7 @@
             
             // 內勤圖表
             if (hasInternalData) {
-                chartsHtml += '<h3 style="margin-top: 30px; margin-bottom: 20px; color: #2d3748; border-bottom: 2px solid #667eea; padding-bottom: 10px;">📊 內勤人員</h3>';
+                chartsHtml += '<h3 style="margin-top: 30px; margin-bottom: 20px; color: #2d3748; border-bottom: 2px solid #0ea5e9; padding-bottom: 10px;">📊 內勤人員</h3>';
                 
                 for (const level of levelOrder) {
                     if (levelGroups.internal[level]) {
@@ -2834,9 +2847,9 @@
             
             // 為每個員工建立資料集
             const colors = [
-                '#667eea', '#764ba2', '#f093fb', '#4facfe',
-                '#43e97b', '#fa709a', '#fee140', '#30cfd0',
-                '#a8edea', '#fed6e3', '#c471f5', '#12c2e9'
+                '#0ea5e9', '#38bdf8', '#0284c7', '#7dd3fc',
+                '#0369a1', '#0c4a6e', '#075985', '#bae6fd',
+                '#0284c7', '#38bdf8', '#0369a1', '#7dd3fc'
             ];
             
             for (let i = 0; i < employees.length; i++) {
@@ -2914,6 +2927,81 @@
                     }
                 }
             });
+            
+            // 在圖表下方建立分數表格
+            const tableContainer = document.createElement('div');
+            tableContainer.style.marginTop = '20px';
+            tableContainer.style.overflowX = 'auto';
+            
+            // 計算每個員工與上月的差異
+            const monthNumbers = actualLevel === 'L1' ? [1,2,3,4,5,6,7,8,9,10,11,12] : [3,5,9,12];
+            
+            let tableHtml = '<table style="width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">';
+            tableHtml += '<thead><tr style="background: #0ea5e9; color: white;">';
+            tableHtml += '<th style="padding: 12px; border: 1px solid #ddd; text-align: left;">員工姓名</th>';
+            
+            for (let i = 0; i < months.length; i++) {
+                tableHtml += `<th style="padding: 12px; border: 1px solid #ddd; text-align: center;">${months[i]}<br><span style="font-size: 0.85em;">(差異)</span></th>`;
+            }
+            
+            tableHtml += '<th style="padding: 12px; border: 1px solid #ddd; text-align: center; background: #0284c7;">年度平均</th>';
+            
+            tableHtml += '</tr></thead><tbody>';
+            
+            for (let i = 0; i < employees.length; i++) {
+                const employee = employees[i];
+                tableHtml += `<tr style="background: ${i % 2 === 0 ? '#f0f9ff' : 'white'};">`;
+                tableHtml += `<td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">${employee.name}</td>`;
+                
+                let previousScore = null;
+                const yearScores = []; // 收集年度所有分數
+                
+                for (let j = 0; j < monthNumbers.length; j++) {
+                    const m = monthNumbers[j];
+                    const period = `${year}${String(m).padStart(2, '0')}`;
+                    const employeeScores = await calculateEmployeeScores(employee.userId, period);
+                    
+                    let cellContent = '-';
+                    let diffHtml = '';
+                    
+                    if (employeeScores) {
+                        const currentScore = parseFloat(employeeScores.totalScore.toFixed(1));
+                        cellContent = currentScore;
+                        yearScores.push(currentScore); // 加入年度分數陣列
+                        
+                        // 計算與上月差異 (該員工自己的上月)
+                        if (previousScore !== null) {
+                            const diff = currentScore - previousScore;
+                            const diffText = diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
+                            const diffColor = diff >= 0 ? '#059669' : '#dc2626';
+                            diffHtml = `<br><span style="font-size: 0.85em; color: ${diffColor}; font-weight: bold;">(${diffText})</span>`;
+                        }
+                        
+                        previousScore = currentScore;
+                    } else {
+                        previousScore = null; // 沒有資料時重置
+                    }
+                    
+                    tableHtml += `<td style="padding: 12px; border: 1px solid #ddd; text-align: center;">${cellContent}${diffHtml}</td>`;
+                }
+                
+                // 計算年度平均
+                let yearAverageHtml = '-';
+                if (yearScores.length > 0) {
+                    const yearAverage = yearScores.reduce((a, b) => a + b, 0) / yearScores.length;
+                    yearAverageHtml = `<strong>${yearAverage.toFixed(1)}</strong>`;
+                }
+                
+                tableHtml += `<td style="padding: 12px; border: 1px solid #ddd; text-align: center; background: #e0f2fe; font-size: 1.1em;">${yearAverageHtml}</td>`;
+                
+                tableHtml += '</tr>';
+            }
+            
+            tableHtml += '</tbody></table>';
+            tableContainer.innerHTML = tableHtml;
+            
+            // 將表格插入到圖表下方
+            canvas.parentElement.appendChild(tableContainer);
         }
 
         // 顯示管理後台
