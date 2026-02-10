@@ -1050,6 +1050,16 @@
             usersListDiv.innerHTML = html;
         }
 
+        // 切換KPI設定顯示
+        window.toggleKPISettings = function(checkbox, mode) {
+            const settingsDiv = document.getElementById(mode + 'KPISettings');
+            if (checkbox.checked) {
+                settingsDiv.style.display = 'block';
+            } else {
+                settingsDiv.style.display = 'none';
+            }
+        };
+
         // 顯示新增使用者對話框
         window.showAddUserModal = async function() {
             // 載入所有主管列表
@@ -1086,12 +1096,12 @@
                         <div class="form-group">
                             <label>職等</label>
                             <select id="newUserLevel">
-                                <option value="">無職等(不需評核)</option>
-                                <option value="L1">L1 (每月評核)</option>
-                                <option value="L2">L2 (季評核)</option>
-                                <option value="L3">L3 (季評核)</option>
-                                <option value="L4">L4 (季評核)</option>
-                                <option value="L5">L5 (不需評核)</option>
+                                <option value="">無職等</option>
+                                <option value="L1">L1</option>
+                                <option value="L2">L2</option>
+                                <option value="L3">L3</option>
+                                <option value="L4">L4</option>
+                                <option value="L5">L5</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -1119,6 +1129,33 @@
                                 按住 Ctrl (Windows) 或 Command (Mac) 可多選
                             </small>
                         </div>
+                        <div class="form-group">
+                            <label>一般評核頻率</label>
+                            <select id="newUserEvalFrequency" required>
+                                <option value="none">不需評核</option>
+                                <option value="monthly">每月評核</option>
+                                <option value="quarterly">每季評核 (3, 5, 9, 12月)</option>
+                            </select>
+                            <small style="color: #a0aec0; display: block; margin-top: 5px;">
+                                設定變更將於次月生效
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="newUserNeedKPI" onchange="window.toggleKPISettings(this, 'new')">
+                                需要KPI評核（每月）
+                            </label>
+                        </div>
+                        <div id="newKPISettings" style="display: none; background: #f0f9ff; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                            <div class="form-group">
+                                <label>KPI分數回填到考核表欄位</label>
+                                <input type="text" id="newUserKPIField" placeholder="例如: flat_2_0 (第3大項第1小項)">
+                                <small style="color: #a0aec0; display: block; margin-top: 5px;">
+                                    格式說明：flat_大項索引_小項索引<br>
+                                    例如：flat_2_0 表示第3個大項的第1個小項（索引從0開始）
+                                </small>
+                            </div>
+                        </div>
                         <button type="submit" class="btn btn-primary">新增</button>
                     </form>
                 </div>
@@ -1135,6 +1172,9 @@
                 const level = document.getElementById('newUserLevel').value;
                 const category = document.getElementById('newUserCategory').value;
                 const role = document.getElementById('newUserRole').value;
+                const evalFrequency = document.getElementById('newUserEvalFrequency').value;
+                const needKPI = document.getElementById('newUserNeedKPI').checked;
+                const kpiField = document.getElementById('newUserKPIField').value;
                 
                 // 取得所選的主管
                 const evaluatorsSelect = document.getElementById('newUserEvaluators');
@@ -1147,15 +1187,24 @@
                     return;
                 }
                 
-                await setDoc(doc(db, 'users', userId), {
+                // 準備使用者資料
+                const userData = {
                     userId: userId,
                     name: name,
                     password: password,
                     level: level || 'L5',
                     category: category,
                     role: role,
-                    evaluators: evaluators
-                });
+                    evaluators: evaluators,
+                    evaluationFrequency: evalFrequency,
+                    needKPI: needKPI,
+                    kpiSettings: needKPI ? {
+                        enabled: true,
+                        targetField: kpiField
+                    } : null
+                };
+                
+                await setDoc(doc(db, 'users', userId), userData);
                 
                 alert('人員新增成功!');
                 modal.remove();
@@ -1913,12 +1962,12 @@
                         <div class="form-group">
                             <label>職等</label>
                             <select id="editUserLevel">
-                                <option value="" ${!userData.level || userData.level === '' ? 'selected' : ''}>無職等(不需評核)</option>
-                                <option value="L1" ${userData.level === 'L1' ? 'selected' : ''}>L1 (每月評核)</option>
-                                <option value="L2" ${userData.level === 'L2' ? 'selected' : ''}>L2 (季評核)</option>
-                                <option value="L3" ${userData.level === 'L3' ? 'selected' : ''}>L3 (季評核)</option>
-                                <option value="L4" ${userData.level === 'L4' ? 'selected' : ''}>L4 (季評核)</option>
-                                <option value="L5" ${userData.level === 'L5' ? 'selected' : ''}>L5 (不需評核)</option>
+                                <option value="" ${!userData.level || userData.level === '' ? 'selected' : ''}>無職等</option>
+                                <option value="L1" ${userData.level === 'L1' ? 'selected' : ''}>L1</option>
+                                <option value="L2" ${userData.level === 'L2' ? 'selected' : ''}>L2</option>
+                                <option value="L3" ${userData.level === 'L3' ? 'selected' : ''}>L3</option>
+                                <option value="L4" ${userData.level === 'L4' ? 'selected' : ''}>L4</option>
+                                <option value="L5" ${userData.level === 'L5' ? 'selected' : ''}>L5</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -1947,6 +1996,33 @@
                                 按住 Ctrl (Windows) 或 Command (Mac) 可多選
                             </small>
                         </div>
+                        <div class="form-group">
+                            <label>一般評核頻率</label>
+                            <select id="editUserEvalFrequency" required>
+                                <option value="none" ${userData.evaluationFrequency === 'none' || !userData.evaluationFrequency ? 'selected' : ''}>不需評核</option>
+                                <option value="monthly" ${userData.evaluationFrequency === 'monthly' ? 'selected' : ''}>每月評核</option>
+                                <option value="quarterly" ${userData.evaluationFrequency === 'quarterly' ? 'selected' : ''}>每季評核 (3, 5, 9, 12月)</option>
+                            </select>
+                            <small style="color: #a0aec0; display: block; margin-top: 5px;">
+                                設定變更將於次月生效
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="editUserNeedKPI" ${userData.needKPI ? 'checked' : ''} onchange="window.toggleKPISettings(this, 'edit')">
+                                需要KPI評核（每月）
+                            </label>
+                        </div>
+                        <div id="editKPISettings" style="display: ${userData.needKPI ? 'block' : 'none'}; background: #f0f9ff; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                            <div class="form-group">
+                                <label>KPI分數回填到考核表欄位</label>
+                                <input type="text" id="editUserKPIField" value="${userData.kpiSettings?.targetField || ''}" placeholder="例如: flat_2_0 (第3大項第1小項)">
+                                <small style="color: #a0aec0; display: block; margin-top: 5px;">
+                                    格式說明：flat_大項索引_小項索引<br>
+                                    例如：flat_2_0 表示第3個大項的第1個小項（索引從0開始）
+                                </small>
+                            </div>
+                        </div>
                         <button type="submit" class="btn btn-primary">儲存修改</button>
                     </form>
                 </div>
@@ -1962,6 +2038,9 @@
                 const level = document.getElementById('editUserLevel').value;
                 const category = document.getElementById('editUserCategory').value;
                 const role = userId === 'Admin01' ? 'admin' : document.getElementById('editUserRole').value;
+                const evalFrequency = document.getElementById('editUserEvalFrequency').value;
+                const needKPI = document.getElementById('editUserNeedKPI').checked;
+                const kpiField = document.getElementById('editUserKPIField').value;
                 
                 // 取得所選的主管
                 const evaluatorsSelect = document.getElementById('editUserEvaluators');
@@ -1972,7 +2051,13 @@
                     level: level || 'L5',
                     category: category,
                     role: role,
-                    evaluators: evaluators
+                    evaluators: evaluators,
+                    evaluationFrequency: evalFrequency,
+                    needKPI: needKPI,
+                    kpiSettings: needKPI ? {
+                        enabled: true,
+                        targetField: kpiField
+                    } : null
                 };
                 
                 // 如果有輸入新密碼才更新
@@ -1997,6 +2082,16 @@
             await deleteDoc(doc(db, 'users', userId));
             alert('使用者已刪除!');
             loadUsersList();
+        };
+
+        // 切換KPI設定區塊顯示
+        window.toggleKPISettings = function(checkbox, mode) {
+            const settingsDiv = document.getElementById(`${mode}KPISettings`);
+            if (checkbox.checked) {
+                settingsDiv.style.display = 'block';
+            } else {
+                settingsDiv.style.display = 'none';
+            }
         };
 
         // 載入統計資料
