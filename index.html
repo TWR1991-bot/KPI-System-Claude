@@ -922,6 +922,8 @@
                             <button class="tab ${currentUser.role === 'admin' ? '' : 'active'}" onclick="window.switchTab(${currentUser.role === 'admin' ? '1' : '0'})">考核統計表</button>
                             <button class="tab" onclick="window.switchTab(${currentUser.role === 'admin' ? '2' : '1'})">職等比對圖表</button>
                             <button class="tab" onclick="window.switchTab(${currentUser.role === 'admin' ? '3' : '2'})">編輯考核表</button>
+                            <button class="tab" onclick="window.switchTab(${currentUser.role === 'admin' ? '4' : '3'})">KPI檢核管理</button>
+                            <button class="tab" onclick="window.switchTab(${currentUser.role === 'admin' ? '5' : '4'})">評分進度追蹤</button>
                         </div>
                         
                         ${currentUser.role === 'admin' ? `
@@ -955,6 +957,12 @@
                         <div id="tab${currentUser.role === 'admin' ? '3' : '2'}" class="tab-content">
                             ${renderTemplateEditor()}
                         </div>
+                        <div id="tab${currentUser.role === 'admin' ? '4' : '3'}" class="tab-content">
+                            ${renderKPIManagement()}
+                        </div>
+                        <div id="tab${currentUser.role === 'admin' ? '5' : '4'}" class="tab-content">
+                            ${renderProgressTracking()}
+                        </div>
                     </div>
                 </div>
             `;
@@ -979,6 +987,16 @@
                 chartYearInput.value = currentYear;
                 window.loadCharts();
             }
+            
+            // 設定評分進度追蹤月份
+            const progressMonthInput = document.getElementById('progressMonth');
+            if (progressMonthInput) {
+                progressMonthInput.value = currentMonth;
+                window.loadProgressTracking();
+            }
+            
+            // 載入鎖定狀態
+            loadLockStatus();
         }
 
         // 切換分頁
@@ -989,6 +1007,298 @@
             document.querySelectorAll('.tab-content').forEach((content, i) => {
                 content.classList.toggle('active', i === index);
             });
+            
+            // 切換到KPI檢核管理時,自動載入檢核表列表
+            const kpiTabIndex = currentUser.role === 'admin' ? 4 : 3;
+            if (index === kpiTabIndex) {
+                loadKPIChecklists();
+            }
+            
+            // 切換到評分進度追蹤時,自動載入數據
+            const progressTabIndex = currentUser.role === 'admin' ? 5 : 4;
+            if (index === progressTabIndex) {
+                const progressMonthInput = document.getElementById('progressMonth');
+                if (progressMonthInput && progressMonthInput.value) {
+                    window.loadProgressTracking();
+                }
+                loadLockStatus();
+            }
+        };
+
+        // 切換KPI管理子分頁
+        window.switchKPITab = function(index) {
+            const tabs = document.querySelectorAll('#tab' + (currentUser.role === 'admin' ? '4' : '3') + ' .tab');
+            const contents = document.querySelectorAll('#kpiTab0, #kpiTab1');
+            
+            tabs.forEach((tab, i) => {
+                tab.classList.toggle('active', i === index);
+            });
+            contents.forEach((content, i) => {
+                content.classList.toggle('active', i === index);
+            });
+            
+            if (index === 0) {
+                loadKPIChecklists();
+            } else {
+                loadKPITemplates();
+            }
+        };
+
+        // 全域鎖單功能
+        window.toggleGlobalLock = async function(checkbox) {
+            const isLocked = checkbox.checked;
+            const lockStatus = document.getElementById('lockStatus');
+            
+            if (isLocked) {
+                if (!confirm('確定要啟用全域鎖定嗎？\n啟用後所有主管將無法繼續評分！')) {
+                    checkbox.checked = false;
+                    return;
+                }
+            }
+            
+            try {
+                await setDoc(doc(db, 'system_settings', 'evaluation_lock'), {
+                    isLocked: isLocked,
+                    lockedAt: isLocked ? new Date().toISOString() : null,
+                    lockedBy: isLocked ? currentUser.userId : null
+                });
+                
+                lockStatus.textContent = isLocked ? '目前狀態：已鎖定' : '目前狀態：開放評分';
+                lockStatus.style.color = isLocked ? '#dc2626' : '#059669';
+                
+                alert(isLocked ? '已啟用全域鎖定！' : '已解除全域鎖定！');
+            } catch (error) {
+                console.error('鎖定設定失敗:', error);
+                alert('操作失敗，請稍後再試');
+                checkbox.checked = !isLocked;
+            }
+        };
+
+        // 載入鎖定狀態
+        async function loadLockStatus() {
+            try {
+                const lockDoc = await getDoc(doc(db, 'system_settings', 'evaluation_lock'));
+                const checkbox = document.getElementById('globalLockToggle');
+                const lockStatus = document.getElementById('lockStatus');
+                
+                if (lockDoc.exists()) {
+                    const isLocked = lockDoc.data().isLocked || false;
+                    if (checkbox) checkbox.checked = isLocked;
+                    if (lockStatus) {
+                        lockStatus.textContent = isLocked ? '目前狀態：已鎖定' : '目前狀態：開放評分';
+                        lockStatus.style.color = isLocked ? '#dc2626' : '#059669';
+                    }
+                }
+            } catch (error) {
+                console.error('載入鎖定狀態失敗:', error);
+            }
+        }
+
+        // 載入KPI檢核表列表
+        async function loadKPIChecklists() {
+            const container = document.getElementById('kpiChecklistContainer');
+            container.innerHTML = '<div class="loading">載入中...</div>';
+            
+            const currentMonth = new Date().toISOString().slice(0, 7).replace('-', '');
+            
+            // 取得所有需要KPI評核的員工
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const kpiEmployees = [];
+            
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                if (user.needKPI && user.evaluators && user.evaluators.includes(currentUser.userId)) {
+                    kpiEmployees.push(user);
+                }
+            });
+            
+            if (kpiEmployees.length === 0) {
+                container.innerHTML = '<p style="color: #a0aec0;">無需您檢核的KPI員工</p>';
+                return;
+            }
+            
+            let html = '<div style="display: grid; gap: 15px;">';
+            
+            for (const employee of kpiEmployees) {
+                const kpiId = `kpi_${employee.userId}_${currentMonth}`;
+                const kpiDoc = await getDoc(doc(db, 'kpi_checklists', kpiId));
+                
+                const status = kpiDoc.exists() ? kpiDoc.data().status : '未建立';
+                const statusText = status === 'submitted' ? '✓ 已送出' : status === 'draft' ? '⏸ 暫存中' : '尚未建立';
+                const statusColor = status === 'submitted' ? '#059669' : status === 'draft' ? '#f59e0b' : '#dc2626';
+                
+                html += `
+                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #e0f2fe; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3 style="margin-bottom: 5px;">${employee.name} (${employee.userId})</h3>
+                                <p style="color: #64748b; margin: 0;">職等: ${employee.level} | 類別: ${employee.category === 'external' ? '外勤' : '內勤'}</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="color: ${statusColor}; font-weight: bold; margin-bottom: 8px;">${statusText}</div>
+                                <button class="btn btn-primary" onclick="window.openKPIChecklist('${employee.userId}', '${currentMonth}')">
+                                    ${status === 'submitted' ? '查看檢核表' : '填寫檢核表'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        // 載入KPI檢核項目設定
+        async function loadKPITemplates() {
+            const container = document.getElementById('kpiTemplateContainer');
+            container.innerHTML = '<div class="loading">載入中...</div>';
+            
+            // 只有admin可以設定
+            if (currentUser.role !== 'admin') {
+                container.innerHTML = '<p style="color: #dc2626;">只有系統管理員可以設定KPI檢核項目</p>';
+                return;
+            }
+            
+            // 取得所有需要KPI的員工
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const kpiEmployees = [];
+            
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                if (user.needKPI) {
+                    kpiEmployees.push(user);
+                }
+            });
+            
+            if (kpiEmployees.length === 0) {
+                container.innerHTML = '<p style="color: #a0aec0;">無需KPI評核的員工<br><small>請在「人員管理」中設定需要KPI評核的員工</small></p>';
+                return;
+            }
+            
+            let html = '<p style="color: #64748b; margin-bottom: 15px;">✨ KPI檢核項目功能將在下一版本開放設定</p>';
+            html += '<div style="display: grid; gap: 10px;">';
+            
+            kpiEmployees.forEach(employee => {
+                html += `
+                    <div style="background: #f0f9ff; padding: 12px; border-radius: 6px; border-left: 4px solid #0ea5e9;">
+                        <strong>${employee.name}</strong> (${employee.userId}) - ${employee.level}
+                        <div style="font-size: 0.9em; color: #64748b; margin-top: 5px;">
+                            回填欄位: ${employee.kpiSettings?.targetField || '未設定'}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        // 打開KPI檢核表 (placeholder function)
+        window.openKPIChecklist = function(employeeId, period) {
+            alert('KPI檢核表填寫功能將在下一版本完成\n\n目前版本可以測試：\n1. 評分進度追蹤\n2. 全域鎖單功能\n3. KPI員工列表顯示');
+        };
+
+        // 載入評分進度追蹤
+        window.loadProgressTracking = async function() {
+            const month = document.getElementById('progressMonth').value;
+            if (!month) return;
+            
+            const period = month.replace('-', '');
+            const container = document.getElementById('progressContainer');
+            container.innerHTML = '<div class="loading">載入中...</div>';
+            
+            // 載入所有需要評核的員工
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const employees = [];
+            
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                // 檢查該員工是否需要評核
+                if (user.evaluators && user.evaluators.length > 0 && user.evaluationFrequency !== 'none') {
+                    employees.push(user);
+                }
+            });
+            
+            if (employees.length === 0) {
+                container.innerHTML = '<p style="color: #a0aec0;">無需評核人員</p>';
+                return;
+            }
+            
+            let html = '<table style="width: 100%; border-collapse: collapse;"><thead><tr style="background: #0ea5e9; color: white;">';
+            html += '<th style="padding: 12px; border: 1px solid #ddd;">員工姓名</th>';
+            html += '<th style="padding: 12px; border: 1px solid #ddd;">職等</th>';
+            html += '<th style="padding: 12px; border: 1px solid #ddd;">評核頻率</th>';
+            html += '<th style="padding: 12px; border: 1px solid #ddd;">一般評核</th>';
+            html += '<th style="padding: 12px; border: 1px solid #ddd;">KPI評核</th>';
+            html += '<th style="padding: 12px; border: 1px solid #ddd;">未送出主管</th>';
+            html += '</tr></thead><tbody>';
+            
+            for (const employee of employees) {
+                // 檢查一般評核狀態
+                const templateId = `${employee.userId}_${period}`;
+                const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
+                
+                let normalStatus = '無需評核';
+                let kpiStatus = '無需評核';
+                let pendingSupervisors = [];
+                
+                if (templateDoc.exists()) {
+                    // 檢查所有主管是否已送出
+                    const evaluationsQuery = query(
+                        collection(db, 'evaluations'),
+                        where('evaluateeId', '==', employee.userId),
+                        where('period', '==', period)
+                    );
+                    const evaluationsSnapshot = await getDocs(evaluationsQuery);
+                    
+                    const submittedEvaluators = evaluationsSnapshot.docs.map(doc => doc.data().evaluatorId);
+                    pendingSupervisors = employee.evaluators.filter(ev => !submittedEvaluators.includes(ev));
+                    
+                    normalStatus = pendingSupervisors.length === 0 ? 
+                        `<span style="color: #059669; font-weight: bold;">✓ 已完成 (${submittedEvaluators.length}/${employee.evaluators.length})</span>` :
+                        `<span style="color: #dc2626; font-weight: bold;">✗ 未完成 (${submittedEvaluators.length}/${employee.evaluators.length})</span>`;
+                }
+                
+                // 檢查KPI評核狀態
+                if (employee.needKPI) {
+                    const kpiId = `kpi_${employee.userId}_${period}`;
+                    const kpiDoc = await getDoc(doc(db, 'kpi_checklists', kpiId));
+                    
+                    if (kpiDoc.exists()) {
+                        const kpiData = kpiDoc.data();
+                        kpiStatus = kpiData.status === 'submitted' ?
+                            `<span style="color: #059669; font-weight: bold;">✓ 已送出</span>` :
+                            `<span style="color: #f59e0b; font-weight: bold;">⏸ 暫存中</span>`;
+                    } else {
+                        kpiStatus = `<span style="color: #dc2626; font-weight: bold;">✗ 未建立</span>`;
+                    }
+                }
+                
+                // 取得主管姓名
+                const pendingNames = [];
+                for (const supId of pendingSupervisors) {
+                    const supDoc = await getDoc(doc(db, 'users', supId));
+                    if (supDoc.exists()) {
+                        pendingNames.push(supDoc.data().name);
+                    }
+                }
+                
+                const pendingText = pendingNames.length > 0 ? pendingNames.join(', ') : '-';
+                const rowColor = (pendingSupervisors.length > 0 || (employee.needKPI && kpiStatus.includes('未'))) ? '#fff3cd' : 'white';
+                
+                html += `<tr style="background: ${rowColor};">`;
+                html += `<td style="padding: 12px; border: 1px solid #ddd;">${employee.name}</td>`;
+                html += `<td style="padding: 12px; border: 1px solid #ddd;">${employee.level || '-'}</td>`;
+                html += `<td style="padding: 12px; border: 1px solid #ddd;">${employee.evaluationFrequency === 'monthly' ? '每月' : '每季'}</td>`;
+                html += `<td style="padding: 12px; border: 1px solid #ddd;">${normalStatus}</td>`;
+                html += `<td style="padding: 12px; border: 1px solid #ddd;">${kpiStatus}</td>`;
+                html += `<td style="padding: 12px; border: 1px solid #ddd;">${pendingText}</td>`;
+                html += '</tr>';
+            }
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
         };
 
         // 渲染使用者管理
@@ -1211,6 +1521,58 @@
                 loadUsersList();
             });
         };
+
+        // 渲染KPI檢核管理
+        function renderKPIManagement() {
+            return `
+                <h2>KPI檢核管理</h2>
+                <div class="tabs" style="margin-bottom: 20px;">
+                    <button class="tab active" onclick="window.switchKPITab(0)">檢核表填寫</button>
+                    <button class="tab" onclick="window.switchKPITab(1)">檢核項目設定</button>
+                </div>
+                
+                <div id="kpiTab0" class="tab-content active">
+                    <h3>本月KPI檢核表</h3>
+                    <div id="kpiChecklistContainer">
+                        <div class="loading">載入中...</div>
+                    </div>
+                </div>
+                
+                <div id="kpiTab1" class="tab-content">
+                    <h3>設定檢核項目範本</h3>
+                    <div id="kpiTemplateContainer">
+                        <p style="color: #a0aec0;">選擇需要KPI檢核的員工並設定檢核項目</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 渲染評分進度追蹤
+        function renderProgressTracking() {
+            return `
+                <h2>評分進度追蹤</h2>
+                <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h3 style="color: #856404; margin-bottom: 10px;">⚠️ 鎖單設定</h3>
+                    <p style="color: #856404; margin-bottom: 10px;">啟用鎖單後，所有主管將無法繼續評分</p>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="globalLockToggle" onchange="window.toggleGlobalLock(this)" style="width: 20px; height: 20px;">
+                            <span style="font-weight: bold;">全域鎖定評分</span>
+                        </label>
+                        <span id="lockStatus" style="color: #059669; font-weight: bold;">目前狀態：開放評分</span>
+                    </div>
+                </div>
+                
+                <div class="form-group" style="max-width: 400px;">
+                    <label>選擇月份</label>
+                    <input type="month" id="progressMonth" onchange="window.loadProgressTracking()">
+                </div>
+                
+                <div id="progressContainer">
+                    <div class="loading">載入中...</div>
+                </div>
+            `;
+        }
 
         // 渲染評分表編輯器
         function renderTemplateEditor() {
