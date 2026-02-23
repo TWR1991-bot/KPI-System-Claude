@@ -42,6 +42,12 @@
             margin-bottom: 10px;
         }
         
+        .company-logo {
+            height: 60px;
+            margin-bottom: 15px;
+            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.2));
+        }
+        
         .company-title {
             font-size: 1.8em;
             font-weight: bold;
@@ -429,7 +435,7 @@
         const db = getFirestore(app);
 
         // 全域狀態
-        let currentUser = null;
+        window.currentUser = null;
         let currentPage = 'login';
 
         // 初始化系統
@@ -1310,12 +1316,19 @@
             let html = '<div style="display: grid; gap: 15px;">';
             
             for (const employee of kpiEmployees) {
-                const kpiId = `kpi_${employee.userId}_${currentMonth}`;
-                const kpiDoc = await getDoc(doc(db, 'kpi_checklists', kpiId));
+                // 使用新格式ID（包含當前評分人）
+                const myKpiId = `kpi_${employee.userId}_${currentMonth}_${currentUser.userId}`;
+                const myKpiDoc = await getDoc(doc(db, 'kpi_checklists', myKpiId));
                 
-                const status = kpiDoc.exists() ? kpiDoc.data().status : '未建立';
-                const statusText = status === 'submitted' ? '✓ 已送出' : status === 'draft' ? '⏸ 暫存中' : '尚未建立';
-                const statusColor = status === 'submitted' ? '#059669' : status === 'draft' ? '#f59e0b' : '#dc2626';
+                // 檢查舊格式資料（兼容性）
+                const oldKpiId = `kpi_${employee.userId}_${currentMonth}`;
+                const oldKpiDoc = await getDoc(doc(db, 'kpi_checklists', oldKpiId));
+                
+                const myStatus = myKpiDoc.exists() ? myKpiDoc.data().status : '未建立';
+                const hasOldData = oldKpiDoc.exists();
+                
+                const statusText = myStatus === 'submitted' ? '✓ 已送出' : myStatus === 'draft' ? '⏸ 暫存中' : '尚未建立';
+                const statusColor = myStatus === 'submitted' ? '#059669' : myStatus === 'draft' ? '#f59e0b' : '#dc2626';
                 
                 html += `
                     <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #e0f2fe; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
@@ -1323,11 +1336,12 @@
                             <div>
                                 <h3 style="margin-bottom: 5px;">${employee.name} (${employee.userId})</h3>
                                 <p style="color: #64748b; margin: 0;">職等: ${employee.level} | 類別: ${employee.category === 'external' ? '外勤' : '內勤'}</p>
+                                ${hasOldData && myStatus === '未建立' ? '<p style="color: #f59e0b; font-size: 0.85em; margin-top: 5px;">⚠️ 偵測到舊版資料，請重新評核</p>' : ''}
                             </div>
                             <div style="text-align: right;">
                                 <div style="color: ${statusColor}; font-weight: bold; margin-bottom: 8px;">${statusText}</div>
                                 <button class="btn btn-primary" onclick="window.openKPIChecklist('${employee.userId}', '${currentMonth}')">
-                                    ${status === 'submitted' ? '查看檢核表' : '填寫檢核表'}
+                                    ${myStatus === 'submitted' ? '查看檢核表' : '填寫檢核表'}
                                 </button>
                             </div>
                         </div>
@@ -1452,19 +1466,43 @@
         };
 
         // 渲染KPI檢核項目
-        function renderKPIItems() {
+        async function renderKPIItems() {
             const container = document.getElementById('kpiItemsContainer');
             if (!window.currentKPIItems || window.currentKPIItems.length === 0) {
                 container.innerHTML = '<p style="color: #a0aec0;">尚無檢核項目，請點選「新增檢核項目」</p>';
                 return;
             }
             
+            // 取得該員工的所屬主管列表
+            const employeeDoc = await getDoc(doc(db, 'users', window.currentKPIEmployeeId));
+            const employeeData = employeeDoc.data();
+            const employeeEvaluators = employeeData.evaluators || [];
+            
+            // 載入該員工的所屬主管資料
+            const evaluators = [];
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                // 只顯示該員工的所屬主管
+                if (employeeEvaluators.includes(user.userId)) {
+                    evaluators.push({ userId: user.userId, name: user.name });
+                }
+            });
+            
+            if (evaluators.length === 0) {
+                container.innerHTML = '<p style="color: #f59e0b;">⚠️ 該員工尚未設定所屬主管<br><small>請先在「人員管理」中設定該員工的所屬主管</small></p>';
+                return;
+            }
+            
             let html = '<div style="display: grid; gap: 15px;">';
             
             window.currentKPIItems.forEach((item, index) => {
+                const assignedUsers = item.assignedUsers || [];
+                const required = item.required || false;
+                
                 html += `
                     <div style="background: white; border: 2px solid #e0f2fe; border-radius: 8px; padding: 15px;">
-                        <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
                             <h4 style="margin: 0; flex: 1;">項目 ${index + 1}</h4>
                             <button class="btn btn-danger" onclick="window.removeKPIItem(${index})" style="padding: 5px 10px;">刪除</button>
                         </div>
@@ -1487,6 +1525,31 @@
                                 <label>占比 (%)</label>
                                 <input type="number" id="kpiItemWeight_${index}" value="${item.weight || 0}" min="0" max="100" step="0.1" style="width: 100%;">
                             </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="kpiItemRequired_${index}" ${required ? 'checked' : ''}>
+                                <strong>設為必填項目</strong>
+                                <span style="color: #64748b; font-size: 0.9em;">（勾選後，評分人員必須填寫此項目才能送出）</span>
+                            </label>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>指定評分人員（不選則所有主管都可評核）</label>
+                            <div style="background: #f8fafc; border: 1px solid #cbd5e0; border-radius: 6px; padding: 10px; max-height: 150px; overflow-y: auto;">
+                                ${evaluators.map(evaluator => `
+                                    <label style="display: block; padding: 5px 0; cursor: pointer;">
+                                        <input type="checkbox" 
+                                               class="kpi-evaluator-checkbox" 
+                                               data-item-index="${index}" 
+                                               value="${evaluator.name}" 
+                                               ${assignedUsers.includes(evaluator.name) ? 'checked' : ''}>
+                                        ${evaluator.name} (${evaluator.userId})
+                                    </label>
+                                `).join('')}
+                            </div>
+                            <small style="color: #64748b;">若不勾選任何人，則所有主管都可以評核此項目</small>
                         </div>
                     </div>
                 `;
@@ -1542,6 +1605,14 @@
                 const name = document.getElementById(`kpiItemName_${i}`).value.trim();
                 const frequency = document.getElementById(`kpiItemFreq_${i}`).value;
                 const weight = parseFloat(document.getElementById(`kpiItemWeight_${i}`).value);
+                const required = document.getElementById(`kpiItemRequired_${i}`)?.checked || false;
+                
+                // 收集指定的評分人員
+                const assignedUsers = [];
+                const checkboxes = document.querySelectorAll(`.kpi-evaluator-checkbox[data-item-index="${i}"]:checked`);
+                checkboxes.forEach(cb => {
+                    assignedUsers.push(cb.value);
+                });
                 
                 if (!name) {
                     alert(`項目 ${i + 1} 的名稱不能為空`);
@@ -1556,7 +1627,9 @@
                 items.push({
                     name: name,
                     frequency: frequency,
-                    weight: weight
+                    weight: weight,
+                    required: required,
+                    assignedUsers: assignedUsers
                 });
             }
             
@@ -1608,8 +1681,8 @@
             }
             const template = templateDoc.data();
             
-            // 取得現有檢核資料
-            const checklistId = `kpi_${employeeId}_${period}`;
+            // 取得現有檢核資料（使用當前評分人的ID）
+            const checklistId = `kpi_${employeeId}_${period}_${currentUser.userId}`;
             const checklistDoc = await getDoc(doc(db, 'kpi_checklists', checklistId));
             const checklistData = checklistDoc.exists() ? checklistDoc.data() : null;
             
@@ -1634,11 +1707,6 @@
                     
                     <div id="kpiChecklistItems"></div>
                     
-                    <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-top: 20px;">
-                        <h4 style="margin-bottom: 10px;">分數預覽</h4>
-                        <div id="kpiScorePreview" style="font-size: 1.1em;"></div>
-                    </div>
-                    
                     ${!isSubmitted ? `
                     <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
                         <button class="btn btn-secondary" onclick="window.saveKPIChecklist('${employeeId}', '${period}', 'draft')">💾 暫存</button>
@@ -1650,16 +1718,30 @@
             
             document.body.appendChild(modal);
             
+            // 儲存當前範本供後續使用
+            window.currentKPITemplate = template;
+            
             // 渲染檢核項目
             renderKPIChecklistItems(template.items, checklistData?.results || {}, isReadOnly);
-            
-            // 計算並顯示分數
-            updateKPIScorePreview(template.items, checklistData?.results || {});
         };
 
         // 渲染KPI檢核項目
         function renderKPIChecklistItems(items, results, isReadOnly) {
             const container = document.getElementById('kpiChecklistItems');
+            
+            // 過濾只顯示當前用戶負責的項目，但保留原始索引
+            const myItemsWithIndex = items.map((item, originalIndex) => ({ item, originalIndex }))
+                .filter(({ item }) => {
+                    if (!item.assignedUsers || item.assignedUsers.length === 0) {
+                        return true; // 沒有指定評分人員，所有人都可見
+                    }
+                    return item.assignedUsers.includes(currentUser.name);
+                });
+            
+            if (myItemsWithIndex.length === 0) {
+                container.innerHTML = '<p style="padding: 20px; text-align: center; color: #666;">您沒有需要評核的項目</p>';
+                return;
+            }
             
             let html = '<table style="width: 100%; border-collapse: collapse; background: white;">';
             html += '<thead><tr style="background: #0ea5e9; color: white;">';
@@ -1669,25 +1751,27 @@
             html += '<th style="padding: 12px; border: 1px solid #ddd; text-align: center;">檢核記錄</th>';
             html += '</tr></thead><tbody>';
             
-            items.forEach((item, index) => {
+            myItemsWithIndex.forEach(({ item, originalIndex }) => {
                 const slotCount = item.frequency === 'weekly' ? 5 : 1;
                 const frequencyText = item.frequency === 'weekly' ? '周檢核' : '月檢核';
+                const requiredMark = item.required ? ' <span style="color: #ef4444;">*必填</span>' : '';
                 
                 html += `<tr>`;
-                html += `<td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">${item.name}</td>`;
+                html += `<td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">${item.name}${requiredMark}</td>`;
                 html += `<td style="padding: 12px; border: 1px solid #ddd; text-align: center;">${frequencyText}</td>`;
                 html += `<td style="padding: 12px; border: 1px solid #ddd; text-align: center;">${item.weight}%</td>`;
                 html += `<td style="padding: 12px; border: 1px solid #ddd;">`;
                 html += `<div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">`;
                 
                 for (let i = 0; i < slotCount; i++) {
-                    const slotKey = `item_${index}_slot_${i}`;
+                    // 使用原始索引作為key
+                    const slotKey = `item_${originalIndex}_slot_${i}`;
                     const value = results[slotKey] || '';
                     
                     html += `
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
                             <small style="color: #64748b;">第${i+1}${item.frequency === 'weekly' ? '周' : '次'}</small>
-                            <select id="${slotKey}" ${isReadOnly ? 'disabled' : ''} onchange="window.updateKPIPreview()" style="padding: 6px 10px; border: 2px solid #cbd5e0; border-radius: 6px; font-size: 1em;">
+                            <select id="${slotKey}" ${isReadOnly ? 'disabled' : ''} style="padding: 6px 10px; border: 2px solid #cbd5e0; border-radius: 6px; font-size: 1em;">
                                 <option value="">-</option>
                                 <option value="V" ${value === 'V' ? 'selected' : ''}>✓ 完成</option>
                                 <option value="X" ${value === 'X' ? 'selected' : ''}>✗ 未完成</option>
@@ -1704,12 +1788,12 @@
             
             html += `
                 <div style="background: #fffbeb; padding: 12px; border-radius: 6px; margin-top: 15px; border-left: 4px solid #f59e0b;">
-                    <strong>評分說明：</strong>
+                    <strong>評核說明：</strong>
                     <ul style="margin: 5px 0 0 20px; padding: 0;">
-                        <li>連續兩個✗ → 該項目0分</li>
-                        <li>全部✓ → 該項目滿分</li>
-                        <li>有✗但不連續 → 按比例扣分</li>
-                        <li>空白格不計入評分</li>
+                        <li>每個項目請標記是否完成</li>
+                        <li>✓ 代表完成，✗ 代表未完成</li>
+                        <li>請確實填寫每個檢核點</li>
+                        <li>空白格視為未填寫</li>
                     </ul>
                 </div>
             `;
@@ -1824,16 +1908,26 @@
 
         // 儲存KPI檢核表
         window.saveKPIChecklist = async function(employeeId, period, status) {
-            const checklistId = `kpi_${employeeId}_${period}`;
+            // 關鍵修改：每個評分人使用獨立的文件ID，避免互相覆蓋
+            const checklistId = `kpi_${employeeId}_${period}_${currentUser.userId}`;
             
             // 收集所有選擇結果
             const items = window.currentKPITemplate?.items || [];
             const results = {};
             
-            items.forEach((item, index) => {
+            // 只處理當前用戶負責的項目，但保留原始索引
+            const myItemsWithIndex = items.map((item, originalIndex) => ({ item, originalIndex }))
+                .filter(({ item }) => {
+                    if (!item.assignedUsers || item.assignedUsers.length === 0) {
+                        return true; // 沒有指定評分人員，所有人都可見
+                    }
+                    return item.assignedUsers.includes(currentUser.name);
+                });
+            
+            myItemsWithIndex.forEach(({ item, originalIndex }) => {
                 const slotCount = item.frequency === 'weekly' ? 5 : 1;
                 for (let i = 0; i < slotCount; i++) {
-                    const slotKey = `item_${index}_slot_${i}`;
+                    const slotKey = `item_${originalIndex}_slot_${i}`;
                     const select = document.getElementById(slotKey);
                     if (select) {
                         results[slotKey] = select.value;
@@ -1850,19 +1944,41 @@
                     return;
                 }
                 
+                // 檢查必填項目
+                let missingRequired = false;
+                myItemsWithIndex.forEach(({ item, originalIndex }) => {
+                    if (item.required) {
+                        const slotCount = item.frequency === 'weekly' ? 5 : 1;
+                        let hasValue = false;
+                        for (let i = 0; i < slotCount; i++) {
+                            const slotKey = `item_${originalIndex}_slot_${i}`;
+                            if (results[slotKey] && results[slotKey] !== '') {
+                                hasValue = true;
+                                break;
+                            }
+                        }
+                        if (!hasValue) {
+                            alert(`必填項目「${item.name}」尚未填寫！`);
+                            missingRequired = true;
+                        }
+                    }
+                });
+                
+                if (missingRequired) return;
+                
                 if (!confirm('確定要送出KPI檢核表嗎？\n送出後將無法修改！')) {
                     return;
                 }
             }
             
-            // 計算總分
+            // 計算總分（只計算當前用戶負責的項目）
             let totalScore = 0;
-            items.forEach((item, index) => {
+            myItemsWithIndex.forEach(({ item, originalIndex }) => {
                 const slotCount = item.frequency === 'weekly' ? 5 : 1;
                 const slots = [];
                 
                 for (let i = 0; i < slotCount; i++) {
-                    const slotKey = `item_${index}_slot_${i}`;
+                    const slotKey = `item_${originalIndex}_slot_${i}`;
                     const value = results[slotKey] || '';
                     if (value) slots.push(value);
                 }
@@ -1899,6 +2015,7 @@
                     checkerName: currentUser.name,
                     results: results,
                     totalScore: totalScore,
+                    itemsEvaluated: myItemsWithIndex.map(({ item }) => item.name), // 記錄評核了哪些項目
                     status: status,
                     savedAt: new Date().toISOString(),
                     submittedAt: status === 'submitted' ? new Date().toISOString() : null
@@ -3185,8 +3302,20 @@
             
             for (const userDoc of usersSnapshot.docs) {
                 const user = userDoc.data();
-                // 只處理需要評核的員工
-                if (checkNeedsEvaluation(user.level, period)) {
+                
+                // 排除L5和無職等的使用者
+                if (!user.level || user.level === 'L5' || user.level === '') {
+                    continue;
+                }
+                
+                // 檢查是否需要一般評核
+                const needsNormalEval = checkNeedsEvaluation(user.level, period);
+                
+                // 檢查是否有KPI評核
+                const needsKPI = user.needKPI || false;
+                
+                // 只要需要一般評核或需要KPI評核，就嘗試計算分數
+                if (needsNormalEval || needsKPI) {
                     const scores = await calculateEmployeeScores(user.userId, period);
                     if (scores) {
                         employees.push({
@@ -3214,7 +3343,21 @@
             const templateId = `${employeeId}_${period}`;
             const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
             
+            // 先檢查KPI成績（不管有沒有evaluation_template都要檢查）
+            const kpiScore = await getKPIScore(employeeId, period);
+            
             if (!templateDoc.exists()) {
+                // 沒有一般評核範本，但可能有KPI成績
+                if (kpiScore > 0) {
+                    return {
+                        workScore: 0,
+                        compScore: 0,
+                        learningScore: 0,
+                        kpiScore: kpiScore,
+                        totalScore: kpiScore,
+                        evaluations: []
+                    };
+                }
                 return null;
             }
             
@@ -3235,8 +3378,21 @@
             });
             
             if (evaluations.length === 0) {
+                // 即使沒有主管評分，也檢查是否有KPI檢核成績
+                if (kpiScore > 0) {
+                    return {
+                        workScore: 0,
+                        compScore: 0,
+                        learningScore: 0,
+                        kpiScore: kpiScore,
+                        totalScore: kpiScore,
+                        evaluations: []
+                    };
+                }
                 return null;
             }
+            
+            // 已經在開頭查詢過KPI成績，這裡直接使用
             
             // 根據範本類型計算分數
             if (template.templateType === 'flat') {
@@ -3246,7 +3402,8 @@
                     workScore: 0,
                     compScore: 0,
                     learningScore: 0,
-                    totalScore: totalScore,
+                    kpiScore: kpiScore,
+                    totalScore: totalScore + kpiScore,
                     evaluations: evaluations
                 };
             } else {
@@ -3268,16 +3425,37 @@
                     evaluations
                 );
                 
-                const totalScore = workScore + compScore + learningScore;
+                const totalScore = workScore + compScore + learningScore + kpiScore;
                 
                 return {
                     workScore: workScore,
                     compScore: compScore,
                     learningScore: learningScore,
+                    kpiScore: kpiScore,
                     totalScore: totalScore,
                     evaluations: evaluations
                 };
             }
+        }
+        
+        // 新增：取得KPI檢核總分（合併所有評分人的成績）
+        async function getKPIScore(employeeId, period) {
+            const kpiQuery = query(
+                collection(db, 'kpi_checklists'),
+                where('employeeId', '==', employeeId),
+                where('period', '==', period),
+                where('status', '==', 'submitted')
+            );
+            
+            const kpiSnapshot = await getDocs(kpiQuery);
+            let totalKpiScore = 0;
+            
+            kpiSnapshot.forEach(doc => {
+                const data = doc.data();
+                totalKpiScore += (data.totalScore || 0);
+            });
+            
+            return totalKpiScore;
         }
 
         // 計算分類分數(工作表現/綜合表現)
@@ -3568,6 +3746,7 @@
                                     <th>工作表現</th>
                                     <th>綜合表現</th>
                                     <th>個人學習</th>
+                                    <th style="background: #fef3c7;">KPI檢核</th>
                                     <th>總分</th>
                                     <th>與上月比較</th>
                                     <th>操作</th>
@@ -3579,6 +3758,7 @@
                                     <td>${emp.scores.workScore.toFixed(1)}</td>
                                     <td>${emp.scores.compScore.toFixed(1)}</td>
                                     <td>${emp.scores.learningScore.toFixed(1)}</td>
+                                    <td style="background: #fef3c7; font-weight: bold;">${(emp.scores.kpiScore || 0).toFixed(1)}</td>
                                     <td><strong>${emp.scores.totalScore.toFixed(1)}</strong></td>
                                     <td class="${diffClass}">${diffText}</td>
                                     <td>
@@ -3625,90 +3805,142 @@
             
             let detailsHtml = `<h3>${employeeName} - ${period.slice(0,4)}年${period.slice(4)}月 評分明細</h3>`;
             
-            evaluationsSnapshot.forEach(doc => {
-                const evaluation = doc.data();
-                const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
+            // 顯示一般評核明細
+            if (evaluationsSnapshot.size > 0) {
+                detailsHtml += '<h4 style="margin-top: 20px; color: #0ea5e9;">📋 一般評核明細</h4>';
                 
-                // 顯示所有評分項目
-                let scoresHtml = '<div style="max-height: 300px; overflow-y: auto; background: white; padding: 10px; border-radius: 5px; margin-top: 10px;">';
-                
-                if (template) {
-                    if (template.templateType === 'flat') {
-                        // L3、L4 扁平化結構 - 只有一個評分欄位
-                        scoresHtml += '<table style="width: 100%; font-size: 0.9em;"><thead><tr><th>類別</th><th>評分項目</th><th>評分</th></tr></thead><tbody>';
-                        
-                        if (template.categories) {
-                            template.categories.forEach((category, catIndex) => {
-                                category.items.forEach((item, itemIndex) => {
-                                    const itemKey = `flat_${catIndex}_${itemIndex}`;
-                                    const score = evaluation.scores[itemKey] || '';
-                                    
-                                    scoresHtml += `<tr><td style="font-size: 0.8em;">${category.name}</td><td style="font-size: 0.8em;">${item}</td><td>${score}</td></tr>`;
+                evaluationsSnapshot.forEach(doc => {
+                    const evaluation = doc.data();
+                    const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
+                    
+                    // 顯示所有評分項目
+                    let scoresHtml = '<div style="max-height: 300px; overflow-y: auto; background: white; padding: 10px; border-radius: 5px; margin-top: 10px;">';
+                    
+                    if (template) {
+                        if (template.templateType === 'flat') {
+                            // L3、L4 扁平化結構 - 只有一個評分欄位
+                            scoresHtml += '<table style="width: 100%; font-size: 0.9em;"><thead><tr><th>類別</th><th>評分項目</th><th>評分</th></tr></thead><tbody>';
+                            
+                            if (template.categories) {
+                                template.categories.forEach((category, catIndex) => {
+                                    category.items.forEach((item, itemIndex) => {
+                                        const itemKey = `flat_${catIndex}_${itemIndex}`;
+                                        const score = evaluation.scores[itemKey] || '';
+                                        
+                                        scoresHtml += `<tr><td style="font-size: 0.8em;">${category.name}</td><td style="font-size: 0.8em;">${item}</td><td>${score}</td></tr>`;
+                                    });
                                 });
-                            });
-                        }
-                    } else {
-                        // L1、L2 結構化 - 兩個評分欄位
-                        scoresHtml += '<table style="width: 100%; font-size: 0.9em;"><thead><tr><th>類別</th><th>評分項目</th><th>執行力</th><th>錯誤率</th></tr></thead><tbody>';
-                        
-                        // 工作表現
-                        if (template.workPerformance) {
-                            template.workPerformance.forEach((category, catIndex) => {
-                                category.items.forEach((item, itemIndex) => {
-                                    const itemKey = `work_${catIndex}_${itemIndex}`;
+                            }
+                        } else {
+                            // L1、L2 結構化 - 兩個評分欄位
+                            scoresHtml += '<table style="width: 100%; font-size: 0.9em;"><thead><tr><th>類別</th><th>評分項目</th><th>執行力</th><th>錯誤率</th></tr></thead><tbody>';
+                            
+                            // 工作表現
+                            if (template.workPerformance) {
+                                template.workPerformance.forEach((category, catIndex) => {
+                                    category.items.forEach((item, itemIndex) => {
+                                        const itemKey = `work_${catIndex}_${itemIndex}`;
+                                        const score1 = evaluation.scores[`${itemKey}_1`] || '';
+                                        const score2 = evaluation.scores[`${itemKey}_2`] || '';
+                                        
+                                        scoresHtml += `<tr><td style="font-size: 0.8em;">工作-${category.name}</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
+                                    });
+                                });
+                            }
+                            
+                            // 綜合表現
+                            if (template.comprehensivePerformance) {
+                                template.comprehensivePerformance.forEach((category, catIndex) => {
+                                    category.items.forEach((item, itemIndex) => {
+                                        const itemKey = `comp_${catIndex}_${itemIndex}`;
+                                        const score1 = evaluation.scores[`${itemKey}_1`] || '';
+                                        const score2 = evaluation.scores[`${itemKey}_2`] || '';
+                                        
+                                        scoresHtml += `<tr><td style="font-size: 0.8em;">綜合-${category.name}</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
+                                    });
+                                });
+                            }
+                            
+                            // 個人學習
+                            if (template.personalLearning && template.personalLearning.items) {
+                                template.personalLearning.items.forEach((item, itemIndex) => {
+                                    const itemKey = `learn_${itemIndex}`;
                                     const score1 = evaluation.scores[`${itemKey}_1`] || '';
                                     const score2 = evaluation.scores[`${itemKey}_2`] || '';
                                     
-                                    scoresHtml += `<tr><td style="font-size: 0.8em;">工作-${category.name}</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
+                                    scoresHtml += `<tr><td style="font-size: 0.8em;">個人學習</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
                                 });
-                            });
-                        }
-                        
-                        // 綜合表現
-                        if (template.comprehensivePerformance) {
-                            template.comprehensivePerformance.forEach((category, catIndex) => {
-                                category.items.forEach((item, itemIndex) => {
-                                    const itemKey = `comp_${catIndex}_${itemIndex}`;
-                                    const score1 = evaluation.scores[`${itemKey}_1`] || '';
-                                    const score2 = evaluation.scores[`${itemKey}_2`] || '';
-                                    
-                                    scoresHtml += `<tr><td style="font-size: 0.8em;">綜合-${category.name}</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
-                                });
-                            });
-                        }
-                        
-                        // 個人學習
-                        if (template.personalLearning && template.personalLearning.items) {
-                            template.personalLearning.items.forEach((item, itemIndex) => {
-                                const itemKey = `learn_${itemIndex}`;
-                                const score1 = evaluation.scores[`${itemKey}_1`] || '';
-                                const score2 = evaluation.scores[`${itemKey}_2`] || '';
-                                
-                                scoresHtml += `<tr><td style="font-size: 0.8em;">個人學習</td><td style="font-size: 0.8em;">${item}</td><td>${score1}</td><td>${score2}</td></tr>`;
-                            });
+                            }
                         }
                     }
-                }
+                    
+                    scoresHtml += '</tbody></table></div>';
+                    
+                    detailsHtml += `
+                        <div style="background: #f7fafc; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h4 style="margin: 0;">${evaluatorName} 的評分</h4>
+                                <button class="btn btn-danger" onclick="window.returnSingleEvaluation('${evaluation.evaluationId}', '${evaluatorName}', '${employeeId}', '${period}')">
+                                    🔄 退回此評分
+                                </button>
+                            </div>
+                            <p><strong>評語:</strong> ${evaluation.comment || '無'}</p>
+                            <p><strong>送出時間:</strong> ${new Date(evaluation.submittedAt).toLocaleString('zh-TW')}</p>
+                            <details>
+                                <summary style="cursor: pointer; color: #0ea5e9; margin-top: 10px;"><strong>📊 查看所有評分項目</strong></summary>
+                                ${scoresHtml}
+                            </details>
+                        </div>
+                    `;
+                });
+            } else {
+                detailsHtml += '<p style="color: #718096; padding: 10px; background: #f7fafc; border-radius: 6px;">本月無一般評核資料</p>';
+            }
+            
+            // 顯示KPI檢核明細
+            const kpiQuery = query(
+                collection(db, 'kpi_checklists'),
+                where('employeeId', '==', employeeId),
+                where('period', '==', period),
+                where('status', '==', 'submitted')
+            );
+            const kpiSnapshot = await getDocs(kpiQuery);
+            
+            if (kpiSnapshot.size > 0) {
+                detailsHtml += '<h4 style="margin-top: 30px; color: #f59e0b; border-top: 2px solid #fef3c7; padding-top: 20px;">📊 KPI檢核明細</h4>';
                 
-                scoresHtml += '</tbody></table></div>';
+                kpiSnapshot.forEach(doc => {
+                    const kpiData = doc.data();
+                    const checkerName = kpiData.checkerName || '未知';
+                    
+                    detailsHtml += `
+                        <div style="background: #fffbeb; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h4 style="margin: 0;">${checkerName} 的KPI評核</h4>
+                                <span style="background: #f59e0b; color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold;">
+                                    ${kpiData.totalScore.toFixed(1)} 分
+                                </span>
+                            </div>
+                            <p><strong>評核項目:</strong> ${(kpiData.itemsEvaluated || []).join('、')}</p>
+                            <p><strong>送出時間:</strong> ${new Date(kpiData.submittedAt).toLocaleString('zh-TW')}</p>
+                        </div>
+                    `;
+                });
+                
+                // 顯示KPI總分
+                let totalKpiScore = 0;
+                kpiSnapshot.forEach(doc => {
+                    totalKpiScore += (doc.data().totalScore || 0);
+                });
                 
                 detailsHtml += `
-                    <div style="background: #f7fafc; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #0ea5e9;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <h4 style="margin: 0;">${evaluatorName} 的評分</h4>
-                            <button class="btn btn-danger" onclick="window.returnSingleEvaluation('${evaluation.evaluationId}', '${evaluatorName}', '${employeeId}', '${period}')">
-                                🔄 退回此評分
-                            </button>
-                        </div>
-                        <p><strong>評語:</strong> ${evaluation.comment || '無'}</p>
-                        <p><strong>送出時間:</strong> ${new Date(evaluation.submittedAt).toLocaleString('zh-TW')}</p>
-                        <details>
-                            <summary style="cursor: pointer; color: #0ea5e9; margin-top: 10px;"><strong>📊 查看所有評分項目</strong></summary>
-                            ${scoresHtml}
-                        </details>
+                    <div style="background: #fef3c7; padding: 15px; border-radius: 8px; text-align: center; margin-top: 10px;">
+                        <div style="font-size: 0.9em; color: #92400e; margin-bottom: 5px;">KPI檢核總分</div>
+                        <div style="font-size: 2em; font-weight: bold; color: #f59e0b;">${totalKpiScore.toFixed(1)} 分</div>
+                        ${totalKpiScore > 100 ? '<div style="color: #dc2626; margin-top: 10px; font-weight: bold;">⚠️ 注意：分數超過100，請檢查項目權重設定</div>' : ''}
                     </div>
                 `;
-            });
+            }
             
             const modal = document.createElement('div');
             modal.className = 'modal active';
