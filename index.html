@@ -14,7 +14,7 @@
 
         body {
             font-family: 'Microsoft JhengHei', Arial, sans-serif;
-            background: #ffffff;
+            background: linear-gradient(135deg, #7986CB 0%, #9FA8DA 100%);  /* 紫藍色漸層背景 */
             min-height: 100vh;
             padding: 20px;
         }
@@ -22,24 +22,41 @@
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            background: white;
+            background: #F5F5F5;  /* 淺灰背景 */
             border-radius: 15px;
-            box-shadow: 0 4px 6px rgba(14, 165, 233, 0.1), 0 10px 40px rgba(14, 165, 233, 0.15);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             overflow: hidden;
-            border: 1px solid #e0f2fe;
         }
 
         .header {
-            background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
+            background: white;
+            padding: 20px;
+            margin: 20px;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
             position: relative;
         }
 
         .header h1 {
             font-size: 2em;
             margin-bottom: 10px;
+            color: #FFFFFF;  /* 白色 */
+        }
+        
+        .header-logo {
+            height: 70px;
+            width: auto;
+            margin-right: 25px;
+            flex-shrink: 0;
+        }
+        
+        .header-content {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            flex: 1;
         }
         
         .company-logo {
@@ -49,12 +66,20 @@
         }
         
         .company-title {
-            font-size: 1.8em;
+            font-size: 1.9em;
             font-weight: bold;
-            margin-bottom: 15px;
-            color: #ecfeff;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-            letter-spacing: 2px;
+            color: #1976D2;  /* 藍色 */
+            margin: 0;
+            line-height: 1.3;
+            letter-spacing: 0.5px;
+        }
+        
+        .company-subtitle {
+            font-size: 0.9em;
+            color: #9E9E9E;  /* 灰色 */
+            margin-top: 5px;
+            font-weight: normal;
+            letter-spacing: 0.3px;
         }
 
         .user-info {
@@ -67,6 +92,8 @@
         .user-name {
             font-size: 1.1em;
             margin-bottom: 5px;
+            color: #424242;  /* 深灰色，適配白色背景 */
+            font-weight: 500;
         }
 
         .btn {
@@ -80,23 +107,23 @@
         }
 
         .btn-primary {
-            background: #0ea5e9;
+            background: #1976D2;  /* 偏粉的天空藍 */
             color: white;
         }
 
         .btn-primary:hover {
-            background: #0284c7;
+            background: #1565C0;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(8, 145, 178, 0.4);
+            box-shadow: 0 5px 15px rgba(125, 204, 219, 0.4);
         }
 
         .btn-success {
-            background: #48bb78;
+            background: #81C784;
             color: white;
         }
 
         .btn-success:hover {
-            background: #38a169;
+            background: #66BB6A;
         }
 
         .btn-danger {
@@ -127,7 +154,7 @@
 
         .login-container h2 {
             text-align: center;
-            color: #0ea5e9;
+            color: #1E88E5;  /* 改為新的主色 */
             margin-bottom: 30px;
         }
 
@@ -158,7 +185,7 @@
         .form-group select:focus,
         .form-group textarea:focus {
             outline: none;
-            border-color: #0ea5e9;
+            border-color: #1E88E5;
             box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.1);
         }
 
@@ -170,6 +197,9 @@
 
         .content {
             padding: 30px;
+            background: white;
+            margin: 20px;
+            border-radius: 12px;
         }
 
         .tabs {
@@ -189,8 +219,8 @@
         }
 
         .tab.active {
-            color: #0ea5e9;
-            border-bottom: 3px solid #0ea5e9;
+            color: #1E88E5;
+            border-bottom: 3px solid #1E88E5;
             font-weight: bold;
         }
 
@@ -219,7 +249,7 @@
         }
 
         .employee-card:hover {
-            border-color: #0ea5e9;
+            border-color: #1E88E5;
             transform: translateY(-5px);
             box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
@@ -249,9 +279,9 @@
 
         .category-title {
             font-size: 1.5em;
-            color: #0ea5e9;
+            color: #1E88E5;
             margin-bottom: 20px;
-            border-bottom: 2px solid #0ea5e9;
+            border-bottom: 2px solid #1E88E5;
             padding-bottom: 10px;
         }
 
@@ -462,8 +492,13 @@
             app.innerHTML = `
                 <div class="container">
                     <div class="header">
-                        <div class="company-title">何鑫實業 員工績效考核系統</div>
-                        <h1>員工考核系統</h1>
+                        <img src="https://scontent.fkhh1-1.fna.fbcdn.net/v/t39.30808-6/638320048_1475577827909977_1700135213741656516_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=53a332&_nc_ohc=xGAAk3yJe8EQ7kNvwE8lz25&_nc_oc=AdlIyrb0DzEclqxgcIRChglQFyD__ug5GE190Xp93e0MGN4Y44qBjCg1SOooxScjmQA&_nc_zt=23&_nc_ht=scontent.fkhh1-1.fna&_nc_gid=Mn2LiUh0dop6qSALV1NsfA&oh=00_Afsctaij0Qeq2JzQ8IJvMEeQq-5zC9Pl8uQXNlOqYmeRSQ&oe=69A2DD0F" alt="何鑫實業" class="header-logo">
+                        <div class="header-content">
+                            <div class="company-title">
+                                何鑫實業 員工績效考核系統
+                                <div class="company-subtitle">HerHsin Performance Management System</div>
+                            </div>
+                        </div>
                     </div>
                     <div class="login-container">
                         <h2>系統登入</h2>
@@ -544,8 +579,13 @@
             app.innerHTML = `
                 <div class="container">
                     <div class="header">
-                        <div class="company-title">何鑫實業 員工績效考核系統</div>
-                        <h1>評分系統</h1>
+                        <img src="https://scontent.fkhh1-1.fna.fbcdn.net/v/t39.30808-6/638320048_1475577827909977_1700135213741656516_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=53a332&_nc_ohc=xGAAk3yJe8EQ7kNvwE8lz25&_nc_oc=AdlIyrb0DzEclqxgcIRChglQFyD__ug5GE190Xp93e0MGN4Y44qBjCg1SOooxScjmQA&_nc_zt=23&_nc_ht=scontent.fkhh1-1.fna&_nc_gid=Mn2LiUh0dop6qSALV1NsfA&oh=00_Afsctaij0Qeq2JzQ8IJvMEeQq-5zC9Pl8uQXNlOqYmeRSQ&oe=69A2DD0F" alt="何鑫實業" class="header-logo">
+                        <div class="header-content">
+                            <div class="company-title">
+                                何鑫實業 員工績效考核系統
+                                <div class="company-subtitle">HerHsin Performance Management System</div>
+                            </div>
+                        </div>
                         <div class="user-info">
                             <div class="user-name">${currentUser.name}</div>
                             ${currentUser.role === 'manager' ? '<button class="btn btn-secondary" onclick="window.showAdminPanel()">管理後台</button>' : ''}
@@ -1104,8 +1144,13 @@
             app.innerHTML = `
                 <div class="container">
                     <div class="header">
-                        <div class="company-title">何鑫實業 員工績效考核系統</div>
-                        <h1>管理後台</h1>
+                        <img src="https://scontent.fkhh1-1.fna.fbcdn.net/v/t39.30808-6/638320048_1475577827909977_1700135213741656516_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=53a332&_nc_ohc=xGAAk3yJe8EQ7kNvwE8lz25&_nc_oc=AdlIyrb0DzEclqxgcIRChglQFyD__ug5GE190Xp93e0MGN4Y44qBjCg1SOooxScjmQA&_nc_zt=23&_nc_ht=scontent.fkhh1-1.fna&_nc_gid=Mn2LiUh0dop6qSALV1NsfA&oh=00_Afsctaij0Qeq2JzQ8IJvMEeQq-5zC9Pl8uQXNlOqYmeRSQ&oe=69A2DD0F" alt="何鑫實業" class="header-logo">
+                        <div class="header-content">
+                            <div class="company-title">
+                                何鑫實業 員工績效考核系統
+                                <div class="company-subtitle">HerHsin Performance Management System</div>
+                            </div>
+                        </div>
                         <div class="user-info">
                             <div class="user-name">${currentUser.name}</div>
                             ${currentUser.role === 'manager' ? '<button class="btn btn-secondary" onclick="window.backToEvaluation()">返回評分頁面</button>' : ''}
@@ -1331,7 +1376,7 @@
                 const statusColor = myStatus === 'submitted' ? '#059669' : myStatus === 'draft' ? '#f59e0b' : '#dc2626';
                 
                 html += `
-                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #e0f2fe; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #E3F2FD; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <h3 style="margin-bottom: 5px;">${employee.name} (${employee.userId})</h3>
@@ -1394,7 +1439,7 @@
                 const itemCount = hasTemplate ? templateDoc.data().items?.length || 0 : 0;
                 
                 html += `
-                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #e0f2fe; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #E3F2FD; display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <strong>${employee.name}</strong> (${employee.userId}) - ${employee.level}
                             <div style="font-size: 0.9em; color: #64748b; margin-top: 5px;">
@@ -1437,7 +1482,7 @@
                     <h2>KPI檢核項目設定 - ${userData.name}</h2>
                     <div id="kpiTemplateMessage"></div>
                     
-                    <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="background: #F1F8FE; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                         <h4 style="margin-bottom: 10px;">設定說明</h4>
                         <ul style="margin: 0; padding-left: 20px; color: #64748b;">
                             <li>周檢核：每月檢核5次（預留5個格子）</li>
@@ -1501,7 +1546,7 @@
                 const required = item.required || false;
                 
                 html += `
-                    <div style="background: white; border: 2px solid #e0f2fe; border-radius: 8px; padding: 15px;">
+                    <div style="background: white; border: 2px solid #E3F2FD; border-radius: 8px; padding: 15px;">
                         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
                             <h4 style="margin: 0; flex: 1;">項目 ${index + 1}</h4>
                             <button class="btn btn-danger" onclick="window.removeKPIItem(${index})" style="padding: 5px 10px;">刪除</button>
@@ -1562,7 +1607,7 @@
             const weightColor = Math.abs(totalWeight - 100) < 0.01 ? '#059669' : '#dc2626';
             
             html += `
-                <div style="margin-top: 15px; padding: 10px; background: #f0f9ff; border-radius: 6px; text-align: right;">
+                <div style="margin-top: 15px; padding: 10px; background: #F1F8FE; border-radius: 6px; text-align: right;">
                     <strong>占比總和: <span style="color: ${weightColor};">${totalWeight.toFixed(1)}%</span></strong>
                     ${Math.abs(totalWeight - 100) > 0.01 ? ' <span style="color: #dc2626;">⚠️ 建議為100%</span>' : ' <span style="color: #059669;">✓</span>'}
                 </div>
@@ -1695,7 +1740,7 @@
                 <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
                     <span class="close-modal" onclick="this.closest('.modal').remove()">&times;</span>
                     <h2>KPI檢核表 - ${userData.name}</h2>
-                    <div style="background: #f0f9ff; padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+                    <div style="background: #F1F8FE; padding: 12px; border-radius: 6px; margin-bottom: 20px;">
                         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 0.9em;">
                             <div><strong>月份:</strong> ${period.slice(0,4)}年${period.slice(4)}月</div>
                             <div><strong>檢核人員:</strong> ${currentUser.name}</div>
@@ -1744,7 +1789,7 @@
             }
             
             let html = '<table style="width: 100%; border-collapse: collapse; background: white;">';
-            html += '<thead><tr style="background: #0ea5e9; color: white;">';
+            html += '<thead><tr style="background: #1E88E5; color: white;">';
             html += '<th style="padding: 12px; border: 1px solid #ddd; text-align: left; width: 25%;">檢核項目</th>';
             html += '<th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 10%;">頻率</th>';
             html += '<th style="padding: 12px; border: 1px solid #ddd; text-align: center; width: 10%;">占比</th>';
@@ -1898,7 +1943,7 @@
             
             container.innerHTML = `
                 ${detailsHtml}
-                <div style="margin-top: 15px; padding: 15px; background: #0ea5e9; color: white; border-radius: 8px; text-align: center;">
+                <div style="margin-top: 15px; padding: 15px; background: #1E88E5; color: white; border-radius: 8px; text-align: center;">
                     <div style="font-size: 0.9em; margin-bottom: 5px;">總分</div>
                     <div style="font-size: 2em; font-weight: bold;">${totalScore.toFixed(1)}%</div>
                     <div style="font-size: 1.2em; margin-top: 5px;">${scoreOutOf5.toFixed(2)} / 5.0 分</div>
@@ -2056,7 +2101,7 @@
                 return;
             }
             
-            let html = '<table style="width: 100%; border-collapse: collapse;"><thead><tr style="background: #0ea5e9; color: white;">';
+            let html = '<table style="width: 100%; border-collapse: collapse;"><thead><tr style="background: #1E88E5; color: white;">';
             html += '<th style="padding: 12px; border: 1px solid #ddd;">員工姓名</th>';
             html += '<th style="padding: 12px; border: 1px solid #ddd;">職等</th>';
             html += '<th style="padding: 12px; border: 1px solid #ddd;">評核頻率</th>';
@@ -2093,16 +2138,32 @@
                 
                 // 檢查KPI評核狀態
                 if (employee.needKPI) {
-                    const kpiId = `kpi_${employee.userId}_${period}`;
-                    const kpiDoc = await getDoc(doc(db, 'kpi_checklists', kpiId));
+                    // 查詢該員工所有評分人的KPI記錄
+                    const kpiQuery = query(
+                        collection(db, 'kpi_checklists'),
+                        where('employeeId', '==', employee.userId),
+                        where('period', '==', period),
+                        where('status', '==', 'submitted')
+                    );
+                    const kpiSnapshot = await getDocs(kpiQuery);
                     
-                    if (kpiDoc.exists()) {
-                        const kpiData = kpiDoc.data();
-                        kpiStatus = kpiData.status === 'submitted' ?
-                            `<span style="color: #059669; font-weight: bold;">✓ 已送出</span>` :
-                            `<span style="color: #f59e0b; font-weight: bold;">⏸ 暫存中</span>`;
+                    if (kpiSnapshot.size > 0) {
+                        kpiStatus = `<span style="color: #059669; font-weight: bold;">✓ 已送出 (${kpiSnapshot.size}筆)</span>`;
                     } else {
-                        kpiStatus = `<span style="color: #dc2626; font-weight: bold;">✗ 未建立</span>`;
+                        // 檢查是否有暫存中的
+                        const kpiDraftQuery = query(
+                            collection(db, 'kpi_checklists'),
+                            where('employeeId', '==', employee.userId),
+                            where('period', '==', period),
+                            where('status', '==', 'draft')
+                        );
+                        const kpiDraftSnapshot = await getDocs(kpiDraftQuery);
+                        
+                        if (kpiDraftSnapshot.size > 0) {
+                            kpiStatus = `<span style="color: #f59e0b; font-weight: bold;">⏸ 暫存中 (${kpiDraftSnapshot.size}筆)</span>`;
+                        } else {
+                            kpiStatus = `<span style="color: #dc2626; font-weight: bold;">✗ 未建立</span>`;
+                        }
                     }
                 }
                 
@@ -2287,7 +2348,7 @@
                                 需要KPI評核（每月）
                             </label>
                         </div>
-                        <div id="newKPISettings" style="display: none; background: #f0f9ff; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                        <div id="newKPISettings" style="display: none; background: #F1F8FE; padding: 15px; border-radius: 5px; margin-top: 10px;">
                             <div class="form-group">
                                 <label>KPI分數回填到考核表欄位</label>
                                 <input type="text" id="newUserKPIField" placeholder="例如: flat_2_0 (第3大項第1小項)">
@@ -2777,7 +2838,7 @@
             let html = '';
             categories.forEach((cat, index) => {
                 html += `
-                    <div style="background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+                    <div style="background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #1E88E5;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <input type="text" value="${cat.name}" onchange="window.updateFlatCategoryName(${index}, this.value)" 
                                    placeholder="大項名稱" style="flex: 1; margin-right: 10px; padding: 8px; border: 2px solid #cbd5e0; border-radius: 5px;" ${disabled}>
@@ -3206,7 +3267,7 @@
                                 需要KPI評核（每月）
                             </label>
                         </div>
-                        <div id="editKPISettings" style="display: ${userData.needKPI ? 'block' : 'none'}; background: #f0f9ff; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                        <div id="editKPISettings" style="display: ${userData.needKPI ? 'block' : 'none'}; background: #F1F8FE; padding: 15px; border-radius: 5px; margin-top: 10px;">
                             <div class="form-group">
                                 <label>KPI分數回填到考核表欄位</label>
                                 <input type="text" id="editUserKPIField" value="${userData.kpiSettings?.targetField || ''}" placeholder="例如: flat_2_0 (第3大項第1小項)">
@@ -3738,7 +3799,7 @@
                 
                 html += `
                     <div style="background: white; padding: 25px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                        <h3 style="color: #0ea5e9; margin-bottom: 20px;">${emp.name} (${emp.userId}) - ${emp.level}</h3>
+                        <h3 style="color: #1E88E5; margin-bottom: 20px;">${emp.name} (${emp.userId}) - ${emp.level}</h3>
                         <table style="width: 100%;">
                             <thead>
                                 <tr>
@@ -3807,7 +3868,7 @@
             
             // 顯示一般評核明細
             if (evaluationsSnapshot.size > 0) {
-                detailsHtml += '<h4 style="margin-top: 20px; color: #0ea5e9;">📋 一般評核明細</h4>';
+                detailsHtml += '<h4 style="margin-top: 20px; color: #1E88E5;">📋 一般評核明細</h4>';
                 
                 evaluationsSnapshot.forEach(doc => {
                     const evaluation = doc.data();
@@ -3877,7 +3938,7 @@
                     scoresHtml += '</tbody></table></div>';
                     
                     detailsHtml += `
-                        <div style="background: #f7fafc; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+                        <div style="background: #f7fafc; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #1E88E5;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                 <h4 style="margin: 0;">${evaluatorName} 的評分</h4>
                                 <button class="btn btn-danger" onclick="window.returnSingleEvaluation('${evaluation.evaluationId}', '${evaluatorName}', '${employeeId}', '${period}')">
@@ -3887,7 +3948,7 @@
                             <p><strong>評語:</strong> ${evaluation.comment || '無'}</p>
                             <p><strong>送出時間:</strong> ${new Date(evaluation.submittedAt).toLocaleString('zh-TW')}</p>
                             <details>
-                                <summary style="cursor: pointer; color: #0ea5e9; margin-top: 10px;"><strong>📊 查看所有評分項目</strong></summary>
+                                <summary style="cursor: pointer; color: #1E88E5; margin-top: 10px;"><strong>📊 查看所有評分項目</strong></summary>
                                 ${scoresHtml}
                             </details>
                         </div>
@@ -3911,33 +3972,69 @@
                 
                 kpiSnapshot.forEach(doc => {
                     const kpiData = doc.data();
+                    const kpiDocId = doc.id;
                     const checkerName = kpiData.checkerName || '未知';
+                    const checkerId = kpiData.checkerId || '';
+                    
+                    // 顯示評核結果詳情
+                    let resultsDetail = '';
+                    if (kpiData.results) {
+                        resultsDetail = '<details><summary style="cursor: pointer; color: #f59e0b; margin-top: 10px;"><strong>📋 查看評核記錄</strong></summary>';
+                        resultsDetail += '<div style="background: white; padding: 10px; border-radius: 5px; margin-top: 10px; max-height: 200px; overflow-y: auto;">';
+                        resultsDetail += '<table style="width: 100%; font-size: 0.85em;"><thead><tr><th>項目</th><th>結果</th></tr></thead><tbody>';
+                        
+                        Object.entries(kpiData.results).forEach(([key, value]) => {
+                            if (value) {
+                                const displayValue = value === 'V' ? '✓ 完成' : value === 'X' ? '✗ 未完成' : value;
+                                resultsDetail += `<tr><td>${key}</td><td>${displayValue}</td></tr>`;
+                            }
+                        });
+                        
+                        resultsDetail += '</tbody></table></div></details>';
+                    }
                     
                     detailsHtml += `
                         <div style="background: #fffbeb; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                <h4 style="margin: 0;">${checkerName} 的KPI評核</h4>
-                                <span style="background: #f59e0b; color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold;">
-                                    ${kpiData.totalScore.toFixed(1)} 分
-                                </span>
+                                <div>
+                                    <h4 style="margin: 0;">${checkerName} 的KPI評核</h4>
+                                    <small style="color: #92400e;">ID: ${checkerId} | 文件: ${kpiDocId}</small>
+                                </div>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <span style="background: #f59e0b; color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold;">
+                                        ${kpiData.totalScore.toFixed(1)} 分
+                                    </span>
+                                    <button class="btn btn-danger" onclick="window.returnKPIEvaluation('${kpiDocId}', '${checkerName}', '${employeeId}', '${period}')" style="padding: 5px 10px; font-size: 0.9em;">
+                                        🔄 退單
+                                    </button>
+                                </div>
                             </div>
                             <p><strong>評核項目:</strong> ${(kpiData.itemsEvaluated || []).join('、')}</p>
                             <p><strong>送出時間:</strong> ${new Date(kpiData.submittedAt).toLocaleString('zh-TW')}</p>
+                            ${resultsDetail}
                         </div>
                     `;
                 });
                 
-                // 顯示KPI總分
+                // 顯示KPI總分和重複警告
                 let totalKpiScore = 0;
+                const checkerNames = [];
                 kpiSnapshot.forEach(doc => {
                     totalKpiScore += (doc.data().totalScore || 0);
+                    checkerNames.push(doc.data().checkerName);
                 });
+                
+                // 檢查是否有重複的評分人
+                const duplicates = checkerNames.filter((name, index) => checkerNames.indexOf(name) !== index);
+                const hasDuplicates = duplicates.length > 0;
                 
                 detailsHtml += `
                     <div style="background: #fef3c7; padding: 15px; border-radius: 8px; text-align: center; margin-top: 10px;">
                         <div style="font-size: 0.9em; color: #92400e; margin-bottom: 5px;">KPI檢核總分</div>
                         <div style="font-size: 2em; font-weight: bold; color: #f59e0b;">${totalKpiScore.toFixed(1)} 分</div>
+                        <div style="font-size: 0.9em; color: #92400e; margin-top: 5px;">共 ${kpiSnapshot.size} 筆評核記錄</div>
                         ${totalKpiScore > 100 ? '<div style="color: #dc2626; margin-top: 10px; font-weight: bold;">⚠️ 注意：分數超過100，請檢查項目權重設定</div>' : ''}
+                        ${hasDuplicates ? `<div style="color: #dc2626; margin-top: 10px; font-weight: bold;">⚠️ 警告：發現重複的評分人（${[...new Set(duplicates)].join('、')}），可能導致分數重複計算！</div>` : ''}
                     </div>
                 `;
             }
@@ -4002,6 +4099,32 @@
             
             alert('已退單!主管現在可以重新修改評分。');
             window.loadStatistics();
+        };
+
+        // 退回KPI評核
+        window.returnKPIEvaluation = async function(kpiDocId, checkerName, employeeId, period) {
+            if (!confirm(`確定要退回 ${checkerName} 的KPI評核嗎？\n\n退回後該評分人可以重新修改並送出。`)) {
+                return;
+            }
+            
+            try {
+                await updateDoc(doc(db, 'kpi_checklists', kpiDocId), {
+                    status: 'draft',
+                    returnedAt: new Date().toISOString()
+                });
+                
+                alert('KPI評核已退回！');
+                
+                // 關閉明細視窗並重新載入統計表
+                const modal = document.getElementById('detailsModal');
+                if (modal) {
+                    modal.remove();
+                }
+                window.loadStatistics();
+            } catch (error) {
+                console.error('退單失敗:', error);
+                alert('退單失敗，請稍後再試');
+            }
         };
 
         // 下載CSV
@@ -4169,7 +4292,7 @@
             
             // 內勤圖表
             if (hasInternalData) {
-                chartsHtml += '<h3 style="margin-top: 30px; margin-bottom: 20px; color: #2d3748; border-bottom: 2px solid #0ea5e9; padding-bottom: 10px;">📊 內勤人員</h3>';
+                chartsHtml += '<h3 style="margin-top: 30px; margin-bottom: 20px; color: #2d3748; border-bottom: 2px solid #1E88E5; padding-bottom: 10px;">📊 內勤人員</h3>';
                 
                 for (const level of levelOrder) {
                     if (levelGroups.internal[level]) {
@@ -4250,9 +4373,9 @@
             
             // 為每個員工建立資料集
             const colors = [
-                '#0ea5e9', '#38bdf8', '#0284c7', '#7dd3fc',
-                '#0369a1', '#0c4a6e', '#075985', '#bae6fd',
-                '#0284c7', '#38bdf8', '#0369a1', '#7dd3fc'
+                '#1E88E5', '#42A5F5', '#1976D2', '#7dd3fc',
+                '#1565C0', '#0c4a6e', '#075985', '#bae6fd',
+                '#1976D2', '#42A5F5', '#1565C0', '#7dd3fc'
             ];
             
             for (let i = 0; i < employees.length; i++) {
@@ -4340,20 +4463,20 @@
             const monthNumbers = actualLevel === 'L1' ? [1,2,3,4,5,6,7,8,9,10,11,12] : [3,5,9,12];
             
             let tableHtml = '<table style="width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">';
-            tableHtml += '<thead><tr style="background: #0ea5e9; color: white;">';
+            tableHtml += '<thead><tr style="background: #1E88E5; color: white;">';
             tableHtml += '<th style="padding: 12px; border: 1px solid #ddd; text-align: left;">員工姓名</th>';
             
             for (let i = 0; i < months.length; i++) {
                 tableHtml += `<th style="padding: 12px; border: 1px solid #ddd; text-align: center;">${months[i]}<br><span style="font-size: 0.85em;">(差異)</span></th>`;
             }
             
-            tableHtml += '<th style="padding: 12px; border: 1px solid #ddd; text-align: center; background: #0284c7;">年度平均</th>';
+            tableHtml += '<th style="padding: 12px; border: 1px solid #ddd; text-align: center; background: #1976D2;">年度平均</th>';
             
             tableHtml += '</tr></thead><tbody>';
             
             for (let i = 0; i < employees.length; i++) {
                 const employee = employees[i];
-                tableHtml += `<tr style="background: ${i % 2 === 0 ? '#f0f9ff' : 'white'};">`;
+                tableHtml += `<tr style="background: ${i % 2 === 0 ? '#F1F8FE' : 'white'};">`;
                 tableHtml += `<td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">${employee.name}</td>`;
                 
                 let previousScore = null;
@@ -4395,7 +4518,7 @@
                     yearAverageHtml = `<strong>${yearAverage.toFixed(1)}</strong>`;
                 }
                 
-                tableHtml += `<td style="padding: 12px; border: 1px solid #ddd; text-align: center; background: #e0f2fe; font-size: 1.1em;">${yearAverageHtml}</td>`;
+                tableHtml += `<td style="padding: 12px; border: 1px solid #ddd; text-align: center; background: #E3F2FD; font-size: 1.1em;">${yearAverageHtml}</td>`;
                 
                 tableHtml += '</tr>';
             }
