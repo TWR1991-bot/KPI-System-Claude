@@ -1258,8 +1258,6 @@
 
         // 切換分頁
         window.switchTab = function(index) {
-            console.log('切換到tab', index);
-            
             // 移除所有tab的active class
             document.querySelectorAll('.tab').forEach((tab, i) => {
                 tab.classList.toggle('active', i === index);
@@ -1285,15 +1283,15 @@
             if (targetTab) {
                 targetTab.classList.add('active');
                 targetTab.style.display = 'block';
-                console.log('顯示tab:', tabId);
-            } else {
-                console.error('找不到tab:', tabId);
             }
             
             // 切換到KPI檢核管理時,自動載入檢核表列表
             const kpiTabIndex = currentUser.role === 'admin' ? 4 : 3;
             if (index === kpiTabIndex) {
-                setTimeout(() => loadKPIChecklists(), 100);
+                setTimeout(() => {
+                    // 預設載入第一個子tab（檢核表填寫）
+                    loadKPIChecklists();
+                }, 150);
             }
             
             // 切換到評分進度追蹤時,自動載入數據
@@ -1317,11 +1315,15 @@
             const tabs = document.querySelectorAll('#tab' + (currentUser.role === 'admin' ? '4' : '3') + ' .tab');
             const contents = document.querySelectorAll('#kpiTab0, #kpiTab1');
             
+            // 更新tab按鈕的active狀態
             tabs.forEach((tab, i) => {
                 tab.classList.toggle('active', i === index);
             });
+            
+            // 更新tab內容的active狀態並清除inline style
             contents.forEach((content, i) => {
                 content.classList.toggle('active', i === index);
+                content.style.display = '';  // 清除inline style，讓CSS規則生效
             });
             
             if (index === 0) {
@@ -1424,69 +1426,100 @@
         // 載入KPI檢核表列表
         async function loadKPIChecklists() {
             const container = document.getElementById('kpiChecklistContainer');
+            if (!container) {
+                console.error('找不到kpiChecklistContainer');
+                return;
+            }
+            
             container.innerHTML = '<div class="loading">載入中...</div>';
             
             const currentMonth = new Date().toISOString().slice(0, 7).replace('-', '');
             
-            // 取得所有需要KPI評核的員工
-            const usersSnapshot = await getDocs(collection(db, 'users'));
-            const kpiEmployees = [];
-            
-            usersSnapshot.forEach(doc => {
-                const user = doc.data();
-                if (user.needKPI && user.evaluators && user.evaluators.includes(currentUser.userId)) {
-                    kpiEmployees.push(user);
+            try {
+                // 取得所有需要KPI評核的員工
+                const usersSnapshot = await getDocs(collection(db, 'users'));
+                const kpiEmployees = [];
+                
+                usersSnapshot.forEach(doc => {
+                    const userData = doc.data();
+                    
+                    // 修改篩選邏輯：
+                    // 1. 如果是admin，顯示所有需要KPI的員工
+                    // 2. 如果是manager，只顯示自己負責評核的員工
+                    if (userData.needKPI) {
+                        if (currentUser.role === 'admin') {
+                            // admin可以看到所有人
+                            kpiEmployees.push({
+                                userId: doc.id,  // 重要：加入userId
+                                ...userData
+                            });
+                        } else if (userData.evaluators && userData.evaluators.includes(currentUser.userId)) {
+                            // manager只能看到自己負責的員工
+                            kpiEmployees.push({
+                                userId: doc.id,  // 重要：加入userId
+                                ...userData
+                            });
+                        }
+                    }
+                });
+                
+                if (kpiEmployees.length === 0) {
+                    container.innerHTML = '<p style="color: #a0aec0;">無需您檢核的KPI員工</p>';
+                    return;
                 }
-            });
-            
-            if (kpiEmployees.length === 0) {
-                container.innerHTML = '<p style="color: #a0aec0;">無需您檢核的KPI員工</p>';
-                return;
-            }
-            
-            let html = '<div style="display: grid; gap: 15px;">';
-            
-            for (const employee of kpiEmployees) {
-                // 使用新格式ID（包含當前評分人）
-                const myKpiId = `kpi_${employee.userId}_${currentMonth}_${currentUser.userId}`;
-                const myKpiDoc = await getDoc(doc(db, 'kpi_checklists', myKpiId));
                 
-                // 檢查舊格式資料（兼容性）
-                const oldKpiId = `kpi_${employee.userId}_${currentMonth}`;
-                const oldKpiDoc = await getDoc(doc(db, 'kpi_checklists', oldKpiId));
+                let html = '<div style="display: grid; gap: 15px;">';
                 
-                const myStatus = myKpiDoc.exists() ? myKpiDoc.data().status : '未建立';
-                const hasOldData = oldKpiDoc.exists();
-                
-                const statusText = myStatus === 'submitted' ? '✓ 已送出' : myStatus === 'draft' ? '⏸ 暫存中' : '尚未建立';
-                const statusColor = myStatus === 'submitted' ? '#059669' : myStatus === 'draft' ? '#f59e0b' : '#dc2626';
-                
-                html += `
-                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #E3F2FD; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <h3 style="margin-bottom: 5px;">${employee.name} (${employee.userId})</h3>
-                                <p style="color: #64748b; margin: 0;">職等: ${employee.level} | 類別: ${employee.category === 'external' ? '外勤' : '內勤'}</p>
-                                ${hasOldData && myStatus === '未建立' ? '<p style="color: #f59e0b; font-size: 0.85em; margin-top: 5px;">⚠️ 偵測到舊版資料，請重新評核</p>' : ''}
-                            </div>
-                            <div style="text-align: right;">
-                                <div style="color: ${statusColor}; font-weight: bold; margin-bottom: 8px;">${statusText}</div>
-                                <button class="btn btn-primary" onclick="window.openKPIChecklist('${employee.userId}', '${currentMonth}')">
-                                    ${myStatus === 'submitted' ? '查看檢核表' : '填寫檢核表'}
-                                </button>
+                for (const employee of kpiEmployees) {
+                    // 使用新格式ID（包含當前評分人）
+                    const myKpiId = `kpi_${employee.userId}_${currentMonth}_${currentUser.userId}`;
+                    const myKpiDoc = await getDoc(doc(db, 'kpi_checklists', myKpiId));
+                    
+                    // 檢查舊格式資料（兼容性）
+                    const oldKpiId = `kpi_${employee.userId}_${currentMonth}`;
+                    const oldKpiDoc = await getDoc(doc(db, 'kpi_checklists', oldKpiId));
+                    
+                    const myStatus = myKpiDoc.exists() ? myKpiDoc.data().status : '未建立';
+                    const hasOldData = oldKpiDoc.exists();
+                    
+                    const statusText = myStatus === 'submitted' ? '✓ 已送出' : myStatus === 'draft' ? '⏸ 暫存中' : '尚未建立';
+                    const statusColor = myStatus === 'submitted' ? '#059669' : myStatus === 'draft' ? '#f59e0b' : '#dc2626';
+                    
+                    html += `
+                        <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #E3F2FD; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <h3 style="margin-bottom: 5px;">${employee.name} (${employee.userId})</h3>
+                                    <p style="color: #64748b; margin: 0;">職等: ${employee.level} | 類別: ${employee.category === 'external' ? '外勤' : '內勤'}</p>
+                                    ${hasOldData && myStatus === '未建立' ? '<p style="color: #f59e0b; font-size: 0.85em; margin-top: 5px;">⚠️ 偵測到舊版資料，請重新評核</p>' : ''}
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="color: ${statusColor}; font-weight: bold; margin-bottom: 8px;">${statusText}</div>
+                                    <button class="btn btn-primary" onclick="window.openKPIChecklist('${employee.userId}', '${currentMonth}')">
+                                        ${myStatus === 'submitted' ? '查看檢核表' : '填寫檢核表'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                }
+                
+                html += '</div>';
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('載入KPI檢核表失敗:', error);
+                container.innerHTML = `<p style="color: #dc2626;">載入失敗: ${error.message}</p>`;
             }
-            
-            html += '</div>';
-            container.innerHTML = html;
         }
 
         // 載入KPI檢核項目設定
         async function loadKPITemplates() {
             const container = document.getElementById('kpiTemplateContainer');
+            if (!container) {
+                console.error('找不到kpiTemplateContainer');
+                return;
+            }
+            
             container.innerHTML = '<div class="loading">載入中...</div>';
             
             // 只有admin可以設定
@@ -1495,55 +1528,63 @@
                 return;
             }
             
-            // 取得所有需要KPI的員工
-            const usersSnapshot = await getDocs(collection(db, 'users'));
-            const kpiEmployees = [];
-            
-            usersSnapshot.forEach(doc => {
-                const user = doc.data();
-                if (user.needKPI) {
-                    kpiEmployees.push(user);
-                }
-            });
-            
-            if (kpiEmployees.length === 0) {
-                container.innerHTML = '<p style="color: #a0aec0;">無需KPI評核的員工<br><small>請在「人員管理」中設定需要KPI評核的員工</small></p>';
-                return;
-            }
-            
-            let html = '<div style="margin-bottom: 20px;">';
-            html += '<button class="btn btn-primary" onclick="window.showKPITemplateEditor()">+ 新增/編輯檢核項目範本</button>';
-            html += '</div>';
-            
-            html += '<h4 style="margin-bottom: 15px;">需要KPI評核的員工</h4>';
-            html += '<div style="display: grid; gap: 10px;">';
-            
-            for (const employee of kpiEmployees) {
-                // 檢查是否有範本
-                const templateDoc = await getDoc(doc(db, 'kpi_templates', employee.userId));
-                const hasTemplate = templateDoc.exists();
-                const itemCount = hasTemplate ? templateDoc.data().items?.length || 0 : 0;
+            try {
+                // 取得所有需要KPI的員工
+                const usersSnapshot = await getDocs(collection(db, 'users'));
+                const kpiEmployees = [];
                 
-                html += `
-                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #E3F2FD; display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong>${employee.name}</strong> (${employee.userId}) - ${employee.level}
-                            <div style="font-size: 0.9em; color: #64748b; margin-top: 5px;">
-                                回填欄位: ${employee.kpiSettings?.targetField || '未設定'}
-                                ${hasTemplate ? `| 檢核項目: ${itemCount}個` : ''}
+                usersSnapshot.forEach(doc => {
+                    const userData = doc.data();
+                    if (userData.needKPI) {
+                        kpiEmployees.push({
+                            userId: doc.id,  // 重要：加入userId
+                            ...userData
+                        });
+                    }
+                });
+                
+                if (kpiEmployees.length === 0) {
+                    container.innerHTML = '<p style="color: #a0aec0;">無需KPI評核的員工<br><small>請在「人員管理」中設定需要KPI評核的員工</small></p>';
+                    return;
+                }
+                
+                let html = '<div style="margin-bottom: 20px;">';
+                html += '<button class="btn btn-primary" onclick="window.showKPITemplateEditor()">+ 新增/編輯檢核項目範本</button>';
+                html += '</div>';
+                
+                html += '<h4 style="margin-bottom: 15px;">需要KPI評核的員工</h4>';
+                html += '<div style="display: grid; gap: 10px;">';
+                
+                for (const employee of kpiEmployees) {
+                    // 檢查是否有範本
+                    const templateDoc = await getDoc(doc(db, 'kpi_templates', employee.userId));
+                    const hasTemplate = templateDoc.exists();
+                    const itemCount = hasTemplate ? templateDoc.data().items?.length || 0 : 0;
+                    
+                    html += `
+                        <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #E3F2FD; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>${employee.name}</strong> (${employee.userId}) - ${employee.level}
+                                <div style="font-size: 0.9em; color: #64748b; margin-top: 5px;">
+                                    回填欄位: ${employee.kpiSettings?.targetField || '未設定'}
+                                    ${hasTemplate ? `| 檢核項目: ${itemCount}個` : ''}
+                                </div>
+                            </div>
+                            <div>
+                                <button class="btn ${hasTemplate ? 'btn-secondary' : 'btn-primary'}" onclick="window.editKPITemplate('${employee.userId}')">
+                                    ${hasTemplate ? '編輯範本' : '建立範本'}
+                                </button>
                             </div>
                         </div>
-                        <div>
-                            <button class="btn ${hasTemplate ? 'btn-secondary' : 'btn-primary'}" onclick="window.editKPITemplate('${employee.userId}')">
-                                ${hasTemplate ? '編輯範本' : '建立範本'}
-                            </button>
-                        </div>
-                    </div>
-                `;
+                    `;
+                }
+                
+                html += '</div>';
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('載入KPI範本設定失敗:', error);
+                container.innerHTML = `<p style="color: #dc2626;">載入失敗: ${error.message}</p>`;
             }
-            
-            html += '</div>';
-            container.innerHTML = html;
         }
 
         // 編輯KPI檢核範本
@@ -2165,7 +2206,6 @@
         window.loadProgressTracking = async function() {
             const month = document.getElementById('progressMonth').value;
             if (!month) {
-                console.log('未選擇月份');
                 return;
             }
             
@@ -2177,7 +2217,6 @@
                 return;
             }
             
-            console.log('progressContainer元素:', container);
             container.innerHTML = '<div class="loading">載入中...</div>';
             
             try {
@@ -2187,16 +2226,22 @@
                 
                 usersSnapshot.forEach(doc => {
                     const userData = doc.data();
-                    // 只要有所屬主管，或需要KPI評核，就顯示
-                    if ((userData.evaluators && userData.evaluators.length > 0) || userData.needKPI) {
+                    
+                    // 檢查該月是否需要一般評核
+                    const needsNormalEval = checkNeedsEvaluationByFrequency(userData.evaluationFrequency || 'none', period);
+                    
+                    // 檢查是否需要KPI評核
+                    const needsKPI = userData.needKPI || false;
+                    
+                    // 只有該月需要評核的員工才顯示
+                    if (needsNormalEval || needsKPI) {
                         employees.push({
                             userId: doc.id,  // 文件ID就是userId
-                            ...userData      // 展開所有欄位
+                            ...userData,     // 展開所有欄位
+                            needsNormalEval: needsNormalEval  // 標記該月是否需要一般評核
                         });
                     }
                 });
-                
-                console.log(`找到 ${employees.length} 位需要評核的員工`);
                 
                 if (employees.length === 0) {
                     container.innerHTML = '<p style="color: #a0aec0;">無需評核人員</p>';
@@ -2212,33 +2257,33 @@
                 html += '<th style="padding: 12px; border: 1px solid #ddd;">未送出主管</th>';
                 html += '</tr></thead><tbody>';
                 
-                let rowCount = 0;
                 for (const employee of employees) {
-                    rowCount++;
-                    console.log(`處理第 ${rowCount} 位員工:`, employee.name || employee.userId);
-                    // 檢查一般評核狀態
-                    const templateId = `${employee.userId}_${period}`;
-                    const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
                     
                     let normalStatus = '無需評核';
                     let kpiStatus = '無需評核';
                     let pendingSupervisors = [];
                     
-                    if (templateDoc.exists()) {
-                        // 檢查所有主管是否已送出
-                        const evaluationsQuery = query(
-                            collection(db, 'evaluations'),
-                            where('evaluateeId', '==', employee.userId),
-                            where('period', '==', period)
-                        );
-                        const evaluationsSnapshot = await getDocs(evaluationsQuery);
+                    // 只有該月需要一般評核的員工才檢查一般評核狀態
+                    if (employee.needsNormalEval) {
+                        const templateId = `${employee.userId}_${period}`;
+                        const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
                         
-                        const submittedEvaluators = evaluationsSnapshot.docs.map(doc => doc.data().evaluatorId);
-                        pendingSupervisors = employee.evaluators.filter(ev => !submittedEvaluators.includes(ev));
-                        
-                        normalStatus = pendingSupervisors.length === 0 ? 
-                            `<span style="color: #059669; font-weight: bold;">✓ 已完成 (${submittedEvaluators.length}/${employee.evaluators.length})</span>` :
-                            `<span style="color: #dc2626; font-weight: bold;">✗ 未完成 (${submittedEvaluators.length}/${employee.evaluators.length})</span>`;
+                        if (templateDoc.exists()) {
+                            // 檢查所有主管是否已送出
+                            const evaluationsQuery = query(
+                                collection(db, 'evaluations'),
+                                where('evaluateeId', '==', employee.userId),
+                                where('period', '==', period)
+                            );
+                            const evaluationsSnapshot = await getDocs(evaluationsQuery);
+                            
+                            const submittedEvaluators = evaluationsSnapshot.docs.map(doc => doc.data().evaluatorId);
+                            pendingSupervisors = employee.evaluators.filter(ev => !submittedEvaluators.includes(ev));
+                            
+                            normalStatus = pendingSupervisors.length === 0 ? 
+                                `<span style="color: #059669; font-weight: bold;">✓ 已完成 (${submittedEvaluators.length}/${employee.evaluators.length})</span>` :
+                                `<span style="color: #dc2626; font-weight: bold;">✗ 未完成 (${submittedEvaluators.length}/${employee.evaluators.length})</span>`;
+                        }
                     }
                     
                     // 檢查KPI評核狀態
@@ -2300,15 +2345,10 @@
                     html += `<td style="padding: 12px; border: 1px solid #ddd;">${kpiStatus}</td>`;
                     html += `<td style="padding: 12px; border: 1px solid #ddd;">${pendingText}</td>`;
                     html += '</tr>';
-                    console.log(`已生成第 ${rowCount} 行HTML`);
                 }
                 
                 html += '</tbody></table>';
-                console.log('生成的HTML長度:', html.length);
-                console.log('HTML前100字元:', html.substring(0, 100));
                 container.innerHTML = html;
-                console.log('HTML已設定到container');
-                console.log('評分進度追蹤載入完成');
             } catch (error) {
                 console.error('載入評分進度失敗:', error);
                 container.innerHTML = `<p style="color: #dc2626;">載入失敗：${error.message}</p>`;
@@ -3494,8 +3534,8 @@
                     continue;
                 }
                 
-                // 檢查是否需要一般評核
-                const needsNormalEval = checkNeedsEvaluation(user.level, period);
+                // 檢查是否需要一般評核（使用新的evaluationFrequency邏輯）
+                const needsNormalEval = checkNeedsEvaluationByFrequency(user.evaluationFrequency || 'none', period);
                 
                 // 檢查是否有KPI評核
                 const needsKPI = user.needKPI || false;
@@ -4478,23 +4518,19 @@
             
             const ctx = canvas.getContext('2d');
             
-            // 從 chartKey 中提取真正的職等 (例如從 "internal_L1" 提取 "L1")
-            const actualLevel = chartKey.includes('_') ? chartKey.split('_')[1] : chartKey;
-            
             // 準備資料
             const months = [];
             const datasets = [];
             
-            // 根據職等決定要顯示哪些月份
-            if (actualLevel === 'L1') {
-                // L1 顯示全年12個月
-                for (let m = 1; m <= 12; m++) {
-                    months.push(`${m}月`);
-                }
-            } else {
-                // L2-L4 只顯示 3, 5, 9, 12 月
-                months.push('3月', '5月', '9月', '12月');
-            }
+            // 檢查該職等的員工中是否有任何人是月考核
+            const hasMonthlyEval = employees.some(emp => emp.evaluationFrequency === 'monthly');
+            
+            // 決定要顯示哪些月份
+            const monthsToShow = hasMonthlyEval ? 
+                [1,2,3,4,5,6,7,8,9,10,11,12] : 
+                [3,5,9,12];
+            
+            monthsToShow.forEach(m => months.push(`${m}月`));
             
             // 為每個員工建立資料集
             const colors = [
@@ -4508,14 +4544,17 @@
                 const scores = [];
                 
                 // 取得該員工每個月的分數
-                for (let m of (actualLevel === 'L1' ? [1,2,3,4,5,6,7,8,9,10,11,12] : [3,5,9,12])) {
+                for (let m of monthsToShow) {
                     const period = `${year}${String(m).padStart(2, '0')}`;
-                    const employeeScores = await calculateEmployeeScores(employee.userId, period);
                     
-                    if (employeeScores) {
-                        scores.push(employeeScores.totalScore.toFixed(1));
+                    // 檢查該員工這個月是否需要評核
+                    const needsEval = checkNeedsEvaluationByFrequency(employee.evaluationFrequency || 'quarterly', period);
+                    
+                    if (needsEval) {
+                        const employeeScores = await calculateEmployeeScores(employee.userId, period);
+                        scores.push(employeeScores ? employeeScores.totalScore.toFixed(1) : null);
                     } else {
-                        scores.push(null); // 沒有資料顯示為空
+                        scores.push(null); // 該月不需評核
                     }
                 }
                 
@@ -4584,8 +4623,8 @@
             tableContainer.style.marginTop = '20px';
             tableContainer.style.overflowX = 'auto';
             
-            // 計算每個員工與上月的差異
-            const monthNumbers = actualLevel === 'L1' ? [1,2,3,4,5,6,7,8,9,10,11,12] : [3,5,9,12];
+            // 使用monthsToShow（已經在上面定義好了）
+            const monthNumbers = monthsToShow;
             
             let tableHtml = '<table style="width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">';
             tableHtml += '<thead><tr style="background: #1E88E5; color: white;">';
@@ -4610,30 +4649,35 @@
                 for (let j = 0; j < monthNumbers.length; j++) {
                     const m = monthNumbers[j];
                     const period = `${year}${String(m).padStart(2, '0')}`;
-                    const employeeScores = await calculateEmployeeScores(employee.userId, period);
+                    
+                    // 檢查該員工這個月是否需要評核
+                    const needsEval = checkNeedsEvaluationByFrequency(employee.evaluationFrequency || 'quarterly', period);
                     
                     let cellContent = '-';
                     let diffHtml = '';
                     
-                    if (employeeScores) {
-                        const currentScore = parseFloat(employeeScores.totalScore.toFixed(1));
-                        cellContent = currentScore;
-                        yearScores.push(currentScore); // 加入年度分數陣列
+                    if (needsEval) {
+                        const employeeScores = await calculateEmployeeScores(employee.userId, period);
                         
-                        // 計算與上月差異 (該員工自己的上月)
-                        if (previousScore !== null) {
-                            const diff = currentScore - previousScore;
-                            const diffText = diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
-                            const diffColor = diff >= 0 ? '#059669' : '#dc2626';
-                            diffHtml = `<br><span style="font-size: 0.85em; color: ${diffColor}; font-weight: bold;">(${diffText})</span>`;
+                        if (employeeScores) {
+                            const currentScore = employeeScores.totalScore;
+                            yearScores.push(currentScore);
+                            cellContent = currentScore.toFixed(1);
+                            
+                            // 計算與上月的差異
+                            if (previousScore !== null) {
+                                const diff = currentScore - previousScore;
+                                const diffColor = diff > 0 ? '#059669' : (diff < 0 ? '#dc2626' : '#6b7280');
+                                const diffSign = diff > 0 ? '+' : '';
+                                diffHtml = `<div style="color: ${diffColor}; font-size: 0.85em;">${diffSign}${diff.toFixed(1)}</div>`;
+                            }
+                            previousScore = currentScore;
                         }
-                        
-                        previousScore = currentScore;
-                    } else {
-                        previousScore = null; // 沒有資料時重置
                     }
                     
-                    tableHtml += `<td style="padding: 12px; border: 1px solid #ddd; text-align: center;">${cellContent}${diffHtml}</td>`;
+                    tableHtml += `<td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
+                        <div style="font-weight: bold;">${cellContent}</div>${diffHtml}
+                    </td>`;
                 }
                 
                 // 計算年度平均
