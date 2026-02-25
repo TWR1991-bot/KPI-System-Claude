@@ -722,17 +722,19 @@
 
         // 開啟評分表
         window.openEvaluation = async function(employeeId, status) {
-            // 檢查全域鎖單狀態
-            const lockDoc = await getDoc(doc(db, 'system_settings', 'evaluation_lock'));
+            const currentMonth = new Date().toISOString().slice(0, 7).replace('-', '');
+            
+            // 檢查該月份的鎖單狀態
+            const lockDoc = await getDoc(doc(db, 'system_settings', `evaluation_lock_${currentMonth}`));
             const isLocked = lockDoc.exists() && lockDoc.data().isLocked;
             
             // 如果已鎖定且尚未送出，則禁止評分
             if (isLocked && status !== 'submitted') {
-                alert('⚠️ 評分系統已被管理員鎖定\n目前無法進行評分\n\n請聯絡管理員了解詳情');
+                const monthDisplay = `${currentMonth.substring(0,4)}-${currentMonth.substring(4,6)}`;
+                alert(`🔒 ${monthDisplay} 的評分已被管理員鎖定\n目前無法進行評分或編輯草稿\n\n請聯絡管理員了解詳情`);
                 return;
             }
             
-            const currentMonth = new Date().toISOString().slice(0, 7).replace('-', '');
             const evaluationId = `${employeeId}_${currentUser.userId}_${currentMonth}`;
             
             // 取得員工資料
@@ -1036,13 +1038,22 @@
 
         // 儲存評分草稿
         window.saveEvaluationDraft = async function(evaluationId, employeeId) {
+            const currentMonth = new Date().toISOString().slice(0, 7).replace('-', '');
+            
+            // 檢查該月份的鎖單狀態
+            const lockDoc = await getDoc(doc(db, 'system_settings', `evaluation_lock_${currentMonth}`));
+            if (lockDoc.exists() && lockDoc.data().isLocked) {
+                const monthDisplay = `${currentMonth.substring(0,4)}-${currentMonth.substring(4,6)}`;
+                alert(`🔒 ${monthDisplay} 的評分已被鎖定，無法儲存草稿`);
+                return;
+            }
+            
             // 驗證分數
             if (!validateAllScores()) {
                 alert('評分不可超過 5 分!請檢查所有評分欄位。');
                 return;
             }
             
-            const currentMonth = new Date().toISOString().slice(0, 7).replace('-', '');
             const form = document.getElementById('evaluationForm');
             const formData = new FormData(form);
             const scores = {};
@@ -1071,6 +1082,16 @@
 
         // 送出評分
         window.submitEvaluation = async function(evaluationId, employeeId) {
+            const currentMonth = new Date().toISOString().slice(0, 7).replace('-', '');
+            
+            // 檢查該月份的鎖單狀態
+            const lockDoc = await getDoc(doc(db, 'system_settings', `evaluation_lock_${currentMonth}`));
+            if (lockDoc.exists() && lockDoc.data().isLocked) {
+                const monthDisplay = `${currentMonth.substring(0,4)}-${currentMonth.substring(4,6)}`;
+                alert(`🔒 ${monthDisplay} 的評分已被鎖定，無法送出評分`);
+                return;
+            }
+            
             // 驗證分數
             if (!validateAllScores()) {
                 alert('評分不可超過 5 分!請檢查所有評分欄位。');
@@ -1081,7 +1102,6 @@
                 return;
             }
             
-            const currentMonth = new Date().toISOString().slice(0, 7).replace('-', '');
             const form = document.getElementById('evaluationForm');
             const formData = new FormData(form);
             const scores = {};
@@ -1229,40 +1249,66 @@
                 window.loadCharts();
             }
             
-            // 設定評分進度追蹤月份
+            // 設定評分進度追蹤月份（但不立即載入，等切換到該tab時再載入）
             const progressMonthInput = document.getElementById('progressMonth');
             if (progressMonthInput) {
                 progressMonthInput.value = currentMonth;
-                window.loadProgressTracking();
             }
-            
-            // 載入鎖定狀態
-            loadLockStatus();
         }
 
         // 切換分頁
         window.switchTab = function(index) {
+            console.log('切換到tab', index);
+            
+            // 移除所有tab的active class
             document.querySelectorAll('.tab').forEach((tab, i) => {
                 tab.classList.toggle('active', i === index);
             });
-            document.querySelectorAll('.tab-content').forEach((content, i) => {
-                content.classList.toggle('active', i === index);
+            
+            // 隱藏所有tab-content
+            document.querySelectorAll('.tab-content').forEach((content) => {
+                content.classList.remove('active');
+                content.style.display = 'none';
             });
+            
+            // 計算正確的tab ID
+            let tabId;
+            if (currentUser.role === 'admin') {
+                tabId = `tab${index}`;
+            } else {
+                // manager沒有tab0，所以要調整
+                tabId = `tab${index}`;
+            }
+            
+            // 顯示目標tab
+            const targetTab = document.getElementById(tabId);
+            if (targetTab) {
+                targetTab.classList.add('active');
+                targetTab.style.display = 'block';
+                console.log('顯示tab:', tabId);
+            } else {
+                console.error('找不到tab:', tabId);
+            }
             
             // 切換到KPI檢核管理時,自動載入檢核表列表
             const kpiTabIndex = currentUser.role === 'admin' ? 4 : 3;
             if (index === kpiTabIndex) {
-                loadKPIChecklists();
+                setTimeout(() => loadKPIChecklists(), 100);
             }
             
             // 切換到評分進度追蹤時,自動載入數據
             const progressTabIndex = currentUser.role === 'admin' ? 5 : 4;
             if (index === progressTabIndex) {
-                const progressMonthInput = document.getElementById('progressMonth');
-                if (progressMonthInput && progressMonthInput.value) {
-                    window.loadProgressTracking();
-                }
-                loadLockStatus();
+                setTimeout(() => {
+                    const progressMonthInput = document.getElementById('progressMonth');
+                    if (progressMonthInput) {
+                        if (!progressMonthInput.value) {
+                            progressMonthInput.value = new Date().toISOString().slice(0, 7);
+                        }
+                        window.loadProgressTracking();
+                    }
+                    window.loadMonthLockStatus();
+                }, 200);
             }
         };
 
@@ -1286,28 +1332,49 @@
         };
 
         // 全域鎖單功能
-        window.toggleGlobalLock = async function(checkbox) {
+        // 切換月份鎖單
+        window.toggleMonthLock = async function(checkbox) {
+            const month = document.getElementById('progressMonth').value;
+            if (!month) {
+                alert('請先選擇月份');
+                checkbox.checked = false;
+                return;
+            }
+            
+            const period = month.replace('-', '');
             const isLocked = checkbox.checked;
-            const lockStatus = document.getElementById('lockStatus');
+            const lockStatus = document.getElementById('monthLockStatus');
+            const lockInfo = document.getElementById('monthLockInfo');
             
             if (isLocked) {
-                if (!confirm('確定要啟用全域鎖定嗎？\n啟用後所有主管將無法繼續評分！')) {
+                if (!confirm(`確定要鎖定 ${month} 的評分嗎？\n\n鎖定後：\n• 主管無法開始新的評分\n• 未送出的草稿無法編輯\n• 已送出的評分不受影響\n\n您可以隨時解鎖`)) {
                     checkbox.checked = false;
                     return;
                 }
             }
             
             try {
-                await setDoc(doc(db, 'system_settings', 'evaluation_lock'), {
+                await setDoc(doc(db, 'system_settings', `evaluation_lock_${period}`), {
+                    period: period,
+                    month: month,
                     isLocked: isLocked,
                     lockedAt: isLocked ? new Date().toISOString() : null,
-                    lockedBy: isLocked ? currentUser.userId : null
+                    lockedBy: isLocked ? currentUser.userId : null,
+                    lockedByName: isLocked ? currentUser.name : null,
+                    unlockedAt: !isLocked ? new Date().toISOString() : null,
+                    unlockedBy: !isLocked ? currentUser.userId : null
                 });
                 
-                lockStatus.textContent = isLocked ? '目前狀態：已鎖定' : '目前狀態：開放評分';
+                lockStatus.textContent = isLocked ? `${month} 已鎖定` : `${month} 開放評分`;
                 lockStatus.style.color = isLocked ? '#dc2626' : '#059669';
                 
-                alert(isLocked ? '已啟用全域鎖定！' : '已解除全域鎖定！');
+                if (isLocked) {
+                    lockInfo.textContent = `鎖定時間: ${new Date().toLocaleString('zh-TW')} | 鎖定人: ${currentUser.name}`;
+                } else {
+                    lockInfo.textContent = `解鎖時間: ${new Date().toLocaleString('zh-TW')} | 解鎖人: ${currentUser.name}`;
+                }
+                
+                alert(isLocked ? `已鎖定 ${month} 的評分！` : `已解鎖 ${month} 的評分！`);
             } catch (error) {
                 console.error('鎖定設定失敗:', error);
                 alert('操作失敗，請稍後再試');
@@ -1315,25 +1382,44 @@
             }
         };
 
-        // 載入鎖定狀態
-        async function loadLockStatus() {
+        // 載入月份鎖定狀態
+        window.loadMonthLockStatus = async function() {
+            const month = document.getElementById('progressMonth').value;
+            if (!month) return;
+            
+            const period = month.replace('-', '');
+            
             try {
-                const lockDoc = await getDoc(doc(db, 'system_settings', 'evaluation_lock'));
-                const checkbox = document.getElementById('globalLockToggle');
-                const lockStatus = document.getElementById('lockStatus');
+                const lockDoc = await getDoc(doc(db, 'system_settings', `evaluation_lock_${period}`));
+                const checkbox = document.getElementById('monthLockToggle');
+                const lockStatus = document.getElementById('monthLockStatus');
+                const lockInfo = document.getElementById('monthLockInfo');
                 
-                if (lockDoc.exists()) {
-                    const isLocked = lockDoc.data().isLocked || false;
-                    if (checkbox) checkbox.checked = isLocked;
+                if (lockDoc.exists() && lockDoc.data().isLocked) {
+                    const data = lockDoc.data();
+                    if (checkbox) checkbox.checked = true;
                     if (lockStatus) {
-                        lockStatus.textContent = isLocked ? '目前狀態：已鎖定' : '目前狀態：開放評分';
-                        lockStatus.style.color = isLocked ? '#dc2626' : '#059669';
+                        lockStatus.textContent = `${month} 已鎖定`;
+                        lockStatus.style.color = '#dc2626';
+                    }
+                    if (lockInfo && data.lockedAt) {
+                        const lockTime = new Date(data.lockedAt).toLocaleString('zh-TW');
+                        lockInfo.textContent = `鎖定時間: ${lockTime} | 鎖定人: ${data.lockedByName || '未知'}`;
+                    }
+                } else {
+                    if (checkbox) checkbox.checked = false;
+                    if (lockStatus) {
+                        lockStatus.textContent = `${month} 開放評分`;
+                        lockStatus.style.color = '#059669';
+                    }
+                    if (lockInfo) {
+                        lockInfo.textContent = '';
                     }
                 }
             } catch (error) {
                 console.error('載入鎖定狀態失敗:', error);
             }
-        }
+        };
 
         // 載入KPI檢核表列表
         async function loadKPIChecklists() {
@@ -2078,119 +2164,155 @@
         // 載入評分進度追蹤
         window.loadProgressTracking = async function() {
             const month = document.getElementById('progressMonth').value;
-            if (!month) return;
-            
-            const period = month.replace('-', '');
-            const container = document.getElementById('progressContainer');
-            container.innerHTML = '<div class="loading">載入中...</div>';
-            
-            // 載入所有需要評核的員工
-            const usersSnapshot = await getDocs(collection(db, 'users'));
-            const employees = [];
-            
-            usersSnapshot.forEach(doc => {
-                const user = doc.data();
-                // 檢查該員工是否需要評核
-                if (user.evaluators && user.evaluators.length > 0 && user.evaluationFrequency !== 'none') {
-                    employees.push(user);
-                }
-            });
-            
-            if (employees.length === 0) {
-                container.innerHTML = '<p style="color: #a0aec0;">無需評核人員</p>';
+            if (!month) {
+                console.log('未選擇月份');
                 return;
             }
             
-            let html = '<table style="width: 100%; border-collapse: collapse;"><thead><tr style="background: #1E88E5; color: white;">';
-            html += '<th style="padding: 12px; border: 1px solid #ddd;">員工姓名</th>';
-            html += '<th style="padding: 12px; border: 1px solid #ddd;">職等</th>';
-            html += '<th style="padding: 12px; border: 1px solid #ddd;">評核頻率</th>';
-            html += '<th style="padding: 12px; border: 1px solid #ddd;">一般評核</th>';
-            html += '<th style="padding: 12px; border: 1px solid #ddd;">KPI評核</th>';
-            html += '<th style="padding: 12px; border: 1px solid #ddd;">未送出主管</th>';
-            html += '</tr></thead><tbody>';
+            const period = month.replace('-', '');
+            const container = document.getElementById('progressContainer');
             
-            for (const employee of employees) {
-                // 檢查一般評核狀態
-                const templateId = `${employee.userId}_${period}`;
-                const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
+            if (!container) {
+                console.error('找不到progressContainer元素！');
+                return;
+            }
+            
+            console.log('progressContainer元素:', container);
+            container.innerHTML = '<div class="loading">載入中...</div>';
+            
+            try {
+                // 載入所有需要評核的員工
+                const usersSnapshot = await getDocs(collection(db, 'users'));
+                const employees = [];
                 
-                let normalStatus = '無需評核';
-                let kpiStatus = '無需評核';
-                let pendingSupervisors = [];
+                usersSnapshot.forEach(doc => {
+                    const userData = doc.data();
+                    // 只要有所屬主管，或需要KPI評核，就顯示
+                    if ((userData.evaluators && userData.evaluators.length > 0) || userData.needKPI) {
+                        employees.push({
+                            userId: doc.id,  // 文件ID就是userId
+                            ...userData      // 展開所有欄位
+                        });
+                    }
+                });
                 
-                if (templateDoc.exists()) {
-                    // 檢查所有主管是否已送出
-                    const evaluationsQuery = query(
-                        collection(db, 'evaluations'),
-                        where('evaluateeId', '==', employee.userId),
-                        where('period', '==', period)
-                    );
-                    const evaluationsSnapshot = await getDocs(evaluationsQuery);
-                    
-                    const submittedEvaluators = evaluationsSnapshot.docs.map(doc => doc.data().evaluatorId);
-                    pendingSupervisors = employee.evaluators.filter(ev => !submittedEvaluators.includes(ev));
-                    
-                    normalStatus = pendingSupervisors.length === 0 ? 
-                        `<span style="color: #059669; font-weight: bold;">✓ 已完成 (${submittedEvaluators.length}/${employee.evaluators.length})</span>` :
-                        `<span style="color: #dc2626; font-weight: bold;">✗ 未完成 (${submittedEvaluators.length}/${employee.evaluators.length})</span>`;
+                console.log(`找到 ${employees.length} 位需要評核的員工`);
+                
+                if (employees.length === 0) {
+                    container.innerHTML = '<p style="color: #a0aec0;">無需評核人員</p>';
+                    return;
                 }
                 
-                // 檢查KPI評核狀態
-                if (employee.needKPI) {
-                    // 查詢該員工所有評分人的KPI記錄
-                    const kpiQuery = query(
-                        collection(db, 'kpi_checklists'),
-                        where('employeeId', '==', employee.userId),
-                        where('period', '==', period),
-                        where('status', '==', 'submitted')
-                    );
-                    const kpiSnapshot = await getDocs(kpiQuery);
+                let html = '<table style="width: 100%; border-collapse: collapse;"><thead><tr style="background: #1E88E5; color: white;">';
+                html += '<th style="padding: 12px; border: 1px solid #ddd;">員工姓名</th>';
+                html += '<th style="padding: 12px; border: 1px solid #ddd;">職等</th>';
+                html += '<th style="padding: 12px; border: 1px solid #ddd;">評核頻率</th>';
+                html += '<th style="padding: 12px; border: 1px solid #ddd;">一般評核</th>';
+                html += '<th style="padding: 12px; border: 1px solid #ddd;">KPI評核</th>';
+                html += '<th style="padding: 12px; border: 1px solid #ddd;">未送出主管</th>';
+                html += '</tr></thead><tbody>';
+                
+                let rowCount = 0;
+                for (const employee of employees) {
+                    rowCount++;
+                    console.log(`處理第 ${rowCount} 位員工:`, employee.name || employee.userId);
+                    // 檢查一般評核狀態
+                    const templateId = `${employee.userId}_${period}`;
+                    const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
                     
-                    if (kpiSnapshot.size > 0) {
-                        kpiStatus = `<span style="color: #059669; font-weight: bold;">✓ 已送出 (${kpiSnapshot.size}筆)</span>`;
-                    } else {
-                        // 檢查是否有暫存中的
-                        const kpiDraftQuery = query(
+                    let normalStatus = '無需評核';
+                    let kpiStatus = '無需評核';
+                    let pendingSupervisors = [];
+                    
+                    if (templateDoc.exists()) {
+                        // 檢查所有主管是否已送出
+                        const evaluationsQuery = query(
+                            collection(db, 'evaluations'),
+                            where('evaluateeId', '==', employee.userId),
+                            where('period', '==', period)
+                        );
+                        const evaluationsSnapshot = await getDocs(evaluationsQuery);
+                        
+                        const submittedEvaluators = evaluationsSnapshot.docs.map(doc => doc.data().evaluatorId);
+                        pendingSupervisors = employee.evaluators.filter(ev => !submittedEvaluators.includes(ev));
+                        
+                        normalStatus = pendingSupervisors.length === 0 ? 
+                            `<span style="color: #059669; font-weight: bold;">✓ 已完成 (${submittedEvaluators.length}/${employee.evaluators.length})</span>` :
+                            `<span style="color: #dc2626; font-weight: bold;">✗ 未完成 (${submittedEvaluators.length}/${employee.evaluators.length})</span>`;
+                    }
+                    
+                    // 檢查KPI評核狀態
+                    if (employee.needKPI) {
+                        // 查詢該員工所有評分人的KPI記錄
+                        const kpiQuery = query(
                             collection(db, 'kpi_checklists'),
                             where('employeeId', '==', employee.userId),
                             where('period', '==', period),
-                            where('status', '==', 'draft')
+                            where('status', '==', 'submitted')
                         );
-                        const kpiDraftSnapshot = await getDocs(kpiDraftQuery);
+                        const kpiSnapshot = await getDocs(kpiQuery);
                         
-                        if (kpiDraftSnapshot.size > 0) {
-                            kpiStatus = `<span style="color: #f59e0b; font-weight: bold;">⏸ 暫存中 (${kpiDraftSnapshot.size}筆)</span>`;
+                        if (kpiSnapshot.size > 0) {
+                            kpiStatus = `<span style="color: #059669; font-weight: bold;">✓ 已送出 (${kpiSnapshot.size}筆)</span>`;
                         } else {
-                            kpiStatus = `<span style="color: #dc2626; font-weight: bold;">✗ 未建立</span>`;
+                            // 檢查是否有暫存中的
+                            const kpiDraftQuery = query(
+                                collection(db, 'kpi_checklists'),
+                                where('employeeId', '==', employee.userId),
+                                where('period', '==', period),
+                                where('status', '==', 'draft')
+                            );
+                            const kpiDraftSnapshot = await getDocs(kpiDraftQuery);
+                            
+                            if (kpiDraftSnapshot.size > 0) {
+                                kpiStatus = `<span style="color: #f59e0b; font-weight: bold;">⏸ 暫存中 (${kpiDraftSnapshot.size}筆)</span>`;
+                            } else {
+                                kpiStatus = `<span style="color: #dc2626; font-weight: bold;">✗ 未建立</span>`;
+                            }
                         }
                     }
-                }
-                
-                // 取得主管姓名
-                const pendingNames = [];
-                for (const supId of pendingSupervisors) {
-                    const supDoc = await getDoc(doc(db, 'users', supId));
-                    if (supDoc.exists()) {
-                        pendingNames.push(supDoc.data().name);
+                    
+                    // 取得主管姓名
+                    const pendingNames = [];
+                    for (const supId of pendingSupervisors) {
+                        const supDoc = await getDoc(doc(db, 'users', supId));
+                        if (supDoc.exists()) {
+                            pendingNames.push(supDoc.data().name);
+                        }
                     }
+                    
+                    const pendingText = pendingNames.length > 0 ? pendingNames.join(', ') : '-';
+                    const rowColor = (pendingSupervisors.length > 0 || (employee.needKPI && kpiStatus.includes('未'))) ? '#fff3cd' : 'white';
+                    
+                    // 安全處理evaluationFrequency
+                    let frequencyText = '-';
+                    if (employee.evaluationFrequency === 'monthly') {
+                        frequencyText = '每月';
+                    } else if (employee.evaluationFrequency === 'quarterly') {
+                        frequencyText = '每季';
+                    }
+                    
+                    html += `<tr style="background: ${rowColor};">`;
+                    html += `<td style="padding: 12px; border: 1px solid #ddd;">${employee.name || employee.userId}</td>`;
+                    html += `<td style="padding: 12px; border: 1px solid #ddd;">${employee.level || '-'}</td>`;
+                    html += `<td style="padding: 12px; border: 1px solid #ddd;">${frequencyText}</td>`;
+                    html += `<td style="padding: 12px; border: 1px solid #ddd;">${normalStatus}</td>`;
+                    html += `<td style="padding: 12px; border: 1px solid #ddd;">${kpiStatus}</td>`;
+                    html += `<td style="padding: 12px; border: 1px solid #ddd;">${pendingText}</td>`;
+                    html += '</tr>';
+                    console.log(`已生成第 ${rowCount} 行HTML`);
                 }
                 
-                const pendingText = pendingNames.length > 0 ? pendingNames.join(', ') : '-';
-                const rowColor = (pendingSupervisors.length > 0 || (employee.needKPI && kpiStatus.includes('未'))) ? '#fff3cd' : 'white';
-                
-                html += `<tr style="background: ${rowColor};">`;
-                html += `<td style="padding: 12px; border: 1px solid #ddd;">${employee.name}</td>`;
-                html += `<td style="padding: 12px; border: 1px solid #ddd;">${employee.level || '-'}</td>`;
-                html += `<td style="padding: 12px; border: 1px solid #ddd;">${employee.evaluationFrequency === 'monthly' ? '每月' : '每季'}</td>`;
-                html += `<td style="padding: 12px; border: 1px solid #ddd;">${normalStatus}</td>`;
-                html += `<td style="padding: 12px; border: 1px solid #ddd;">${kpiStatus}</td>`;
-                html += `<td style="padding: 12px; border: 1px solid #ddd;">${pendingText}</td>`;
-                html += '</tr>';
+                html += '</tbody></table>';
+                console.log('生成的HTML長度:', html.length);
+                console.log('HTML前100字元:', html.substring(0, 100));
+                container.innerHTML = html;
+                console.log('HTML已設定到container');
+                console.log('評分進度追蹤載入完成');
+            } catch (error) {
+                console.error('載入評分進度失敗:', error);
+                container.innerHTML = `<p style="color: #dc2626;">載入失敗：${error.message}</p>`;
             }
-            
-            html += '</tbody></table>';
-            container.innerHTML = html;
         };
 
         // 渲染使用者管理
@@ -2441,27 +2563,30 @@
 
         // 渲染評分進度追蹤
         function renderProgressTracking() {
+            const currentMonth = new Date().toISOString().slice(0, 7);
             return `
                 <h2>評分進度追蹤</h2>
+                
+                <div class="form-group" style="max-width: 400px; margin-bottom: 20px;">
+                    <label>選擇月份</label>
+                    <input type="month" id="progressMonth" value="${currentMonth}" onchange="window.loadProgressTracking(); window.loadMonthLockStatus();">
+                </div>
+                
                 <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                    <h3 style="color: #856404; margin-bottom: 10px;">⚠️ 鎖單設定</h3>
-                    <p style="color: #856404; margin-bottom: 10px;">啟用鎖單後，所有主管將無法繼續評分</p>
-                    <div style="display: flex; align-items: center; gap: 15px;">
+                    <h3 style="color: #856404; margin-bottom: 10px;">🔒 月份鎖單設定</h3>
+                    <p style="color: #856404; margin-bottom: 10px;">鎖定後，該月份的所有主管將無法繼續評分（已送出的不受影響）</p>
+                    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" id="globalLockToggle" onchange="window.toggleGlobalLock(this)" style="width: 20px; height: 20px;">
-                            <span style="font-weight: bold;">全域鎖定評分</span>
+                            <input type="checkbox" id="monthLockToggle" onchange="window.toggleMonthLock(this)" style="width: 20px; height: 20px;">
+                            <span style="font-weight: bold;">鎖定所選月份</span>
                         </label>
-                        <span id="lockStatus" style="color: #059669; font-weight: bold;">目前狀態：開放評分</span>
+                        <span id="monthLockStatus" style="color: #059669; font-weight: bold;">目前狀態：開放評分</span>
+                        <span id="monthLockInfo" style="color: #6b7280; font-size: 0.9em;"></span>
                     </div>
                 </div>
                 
-                <div class="form-group" style="max-width: 400px;">
-                    <label>選擇月份</label>
-                    <input type="month" id="progressMonth" onchange="window.loadProgressTracking()">
-                </div>
-                
                 <div id="progressContainer">
-                    <div class="loading">載入中...</div>
+                    <div class="loading">請選擇月份以查看進度</div>
                 </div>
             `;
         }
