@@ -3989,6 +3989,7 @@
                                     <td class="${diffClass}">${diffText}</td>
                                     <td>
                                         <button class="btn btn-secondary" onclick="window.viewEvaluationDetails('${emp.userId}', '${period}')">查看明細</button>
+                                        <button class="btn btn-primary" onclick="window.analyzeAnomalies('${emp.userId}', '${period}', '${emp.name}')" style="background: #f59e0b;">異常分析</button>
                                         <button class="btn btn-danger" onclick="window.returnEvaluations('${emp.userId}', '${period}')">全部退單</button>
                                     </td>
                                 </tr>
@@ -4216,6 +4217,280 @@
             
             document.body.appendChild(modal);
         };
+
+        // 異常分析功能
+        window.analyzeAnomalies = async function(employeeId, period, employeeName) {
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 900px;">
+                    <span class="close-modal" onclick="this.closest('.modal').remove()">&times;</span>
+                    <h3>📊 ${employeeName} - ${period.slice(0,4)}年${period.slice(4)}月 異常分析</h3>
+                    <div id="anomalyContent"></div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            const content = modal.querySelector('#anomalyContent');
+            content.innerHTML = '<div class="loading">分析中...</div>';
+            
+            try {
+                // 計算上個月期間
+                const currentDate = new Date(period.slice(0, 4) + '-' + period.slice(4) + '-01');
+                currentDate.setMonth(currentDate.getMonth() - 1);
+                const previousPeriod = currentDate.toISOString().slice(0, 7).replace('-', '');
+                
+                // 取得當月和上月的評分資料
+                const currentScores = await getDetailedScores(employeeId, period);
+                const previousScores = await getDetailedScores(employeeId, previousPeriod);
+                
+                if (!currentScores) {
+                    content.innerHTML = '<p style="color: #dc2626;">本月無評核資料</p>';
+                    return;
+                }
+                
+                // 分析異常項目
+                const perfectItems = [];      // 滿分項目
+                const lowItems = [];          // 低於2.2分的項目
+                const decreasedItems = [];    // 與上月相比減少1分以上的項目
+                
+                // 分析當月項目
+                currentScores.forEach(item => {
+                    // 滿分項目（3分）
+                    if (item.score === 3) {
+                        perfectItems.push(item);
+                    }
+                    
+                    // 低於2.2分的項目
+                    if (item.score < 2.2) {
+                        lowItems.push(item);
+                    }
+                    
+                    // 與上月比較
+                    if (previousScores) {
+                        const prevItem = previousScores.find(p => p.itemName === item.itemName);
+                        if (prevItem && (prevItem.score - item.score) >= 1) {
+                            decreasedItems.push({
+                                ...item,
+                                prevScore: prevItem.score,
+                                decrease: prevItem.score - item.score
+                            });
+                        }
+                    }
+                });
+                
+                // 生成報告HTML
+                let html = '<div style="display: grid; gap: 20px;">';
+                
+                // 滿分項目
+                html += `
+                    <div style="background: #d1fae5; padding: 15px; border-radius: 8px; border-left: 4px solid #059669;">
+                        <h4 style="color: #059669; margin-bottom: 10px;">🏆 滿分項目（${perfectItems.length}項）</h4>
+                        ${perfectItems.length > 0 ? `
+                            <table style="width: 100%; font-size: 0.9em;">
+                                <thead>
+                                    <tr style="background: #a7f3d0;">
+                                        <th style="padding: 8px; text-align: left;">類別</th>
+                                        <th style="padding: 8px; text-align: left;">項目名稱</th>
+                                        <th style="padding: 8px; text-align: center;">分數</th>
+                                        <th style="padding: 8px; text-align: left;">評分人</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${perfectItems.map(item => `
+                                        <tr>
+                                            <td style="padding: 8px;">${item.category}</td>
+                                            <td style="padding: 8px;">${item.itemName}</td>
+                                            <td style="padding: 8px; text-align: center; font-weight: bold; color: #059669;">3.0</td>
+                                            <td style="padding: 8px;">${item.evaluator}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        ` : '<p style="color: #64748b; margin: 0;">無滿分項目</p>'}
+                    </div>
+                `;
+                
+                // 低於2.2分的項目
+                html += `
+                    <div style="background: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                        <h4 style="color: #f59e0b; margin-bottom: 10px;">⚠️ 需要改進項目（低於2.2分，${lowItems.length}項）</h4>
+                        ${lowItems.length > 0 ? `
+                            <table style="width: 100%; font-size: 0.9em;">
+                                <thead>
+                                    <tr style="background: #fde68a;">
+                                        <th style="padding: 8px; text-align: left;">類別</th>
+                                        <th style="padding: 8px; text-align: left;">項目名稱</th>
+                                        <th style="padding: 8px; text-align: center;">分數</th>
+                                        <th style="padding: 8px; text-align: left;">評分人</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${lowItems.map(item => `
+                                        <tr>
+                                            <td style="padding: 8px;">${item.category}</td>
+                                            <td style="padding: 8px;">${item.itemName}</td>
+                                            <td style="padding: 8px; text-align: center; font-weight: bold; color: #dc2626;">${item.score.toFixed(1)}</td>
+                                            <td style="padding: 8px;">${item.evaluator}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        ` : '<p style="color: #64748b; margin: 0;">無需要改進的項目</p>'}
+                    </div>
+                `;
+                
+                // 與上月相比減少1分以上的項目
+                html += `
+                    <div style="background: #fee2e2; padding: 15px; border-radius: 8px; border-left: 4px solid #dc2626;">
+                        <h4 style="color: #dc2626; margin-bottom: 10px;">📉 退步項目（減少1分以上，${decreasedItems.length}項）</h4>
+                        ${decreasedItems.length > 0 ? `
+                            <table style="width: 100%; font-size: 0.9em;">
+                                <thead>
+                                    <tr style="background: #fecaca;">
+                                        <th style="padding: 8px; text-align: left;">類別</th>
+                                        <th style="padding: 8px; text-align: left;">項目名稱</th>
+                                        <th style="padding: 8px; text-align: center;">上月分數</th>
+                                        <th style="padding: 8px; text-align: center;">本月分數</th>
+                                        <th style="padding: 8px; text-align: center;">差異</th>
+                                        <th style="padding: 8px; text-align: left;">評分人</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${decreasedItems.map(item => `
+                                        <tr>
+                                            <td style="padding: 8px;">${item.category}</td>
+                                            <td style="padding: 8px;">${item.itemName}</td>
+                                            <td style="padding: 8px; text-align: center;">${item.prevScore.toFixed(1)}</td>
+                                            <td style="padding: 8px; text-align: center; font-weight: bold; color: #dc2626;">${item.score.toFixed(1)}</td>
+                                            <td style="padding: 8px; text-align: center; font-weight: bold; color: #dc2626;">-${item.decrease.toFixed(1)}</td>
+                                            <td style="padding: 8px;">${item.evaluator}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        ` : '<p style="color: #64748b; margin: 0;">無退步項目</p>'}
+                    </div>
+                `;
+                
+                // 總結
+                html += `
+                    <div style="background: #e0f2fe; padding: 15px; border-radius: 8px;">
+                        <h4 style="color: #0369a1; margin-bottom: 10px;">📝 總結</h4>
+                        <ul style="margin: 0; padding-left: 20px; color: #0c4a6e;">
+                            <li>優異表現：${perfectItems.length} 個項目獲得滿分</li>
+                            <li>需要關注：${lowItems.length} 個項目低於2.2分</li>
+                            <li>退步警示：${decreasedItems.length} 個項目較上月減少1分以上</li>
+                        </ul>
+                    </div>
+                `;
+                
+                html += '</div>';
+                content.innerHTML = html;
+                
+            } catch (error) {
+                console.error('異常分析失敗:', error);
+                content.innerHTML = `<p style="color: #dc2626;">分析失敗: ${error.message}</p>`;
+            }
+        };
+
+        // 取得詳細評分資料（用於異常分析）
+        async function getDetailedScores(employeeId, period) {
+            const templateId = `${employeeId}_${period}`;
+            const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
+            
+            if (!templateDoc.exists()) {
+                return null;
+            }
+            
+            const template = templateDoc.data();
+            
+            // 取得所有評分
+            const evaluationsQuery = query(
+                collection(db, 'evaluations'),
+                where('evaluateeId', '==', employeeId),
+                where('period', '==', period),
+                where('status', '==', 'submitted')
+            );
+            
+            const evaluationsSnapshot = await getDocs(evaluationsQuery);
+            
+            if (evaluationsSnapshot.size === 0) {
+                return null;
+            }
+            
+            // 取得評分人名稱
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const evaluatorNames = {};
+            usersSnapshot.forEach(doc => {
+                const user = doc.data();
+                evaluatorNames[user.userId] = user.name;
+            });
+            
+            const detailedScores = [];
+            
+            // 根據範本類型解析評分
+            if (template.templateType === 'flat') {
+                // L3、L4 扁平化結構
+                if (template.categories && Array.isArray(template.categories)) {
+                    template.categories.forEach(category => {
+                        if (category.items && Array.isArray(category.items)) {
+                            category.items.forEach(item => {
+                                evaluationsSnapshot.forEach(evalDoc => {
+                                    const evaluation = evalDoc.data();
+                                    const fieldKey = `flat_${category.index}_${item.index}`;
+                                    const score = evaluation.scores?.[fieldKey];
+                                    
+                                    if (score !== undefined && score !== null) {
+                                        detailedScores.push({
+                                            category: category.name,
+                                            itemName: item.name,
+                                            score: parseFloat(score),
+                                            evaluator: evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId
+                                        });
+                                    }
+                                });
+                            });
+                        }
+                    });
+                }
+            } else {
+                // L1、L2 結構化
+                const categories = [
+                    { data: template.workPerformance, prefix: 'work', name: '工作表現' },
+                    { data: template.comprehensivePerformance, prefix: 'comp', name: '綜合表現' },
+                    { data: template.personalLearning, prefix: 'learning', name: '個人學習' }
+                ];
+                
+                categories.forEach(cat => {
+                    // 確保 cat.data 存在且是陣列
+                    if (cat.data && Array.isArray(cat.data)) {
+                        cat.data.forEach((category, catIndex) => {
+                            if (category.items && Array.isArray(category.items)) {
+                                category.items.forEach((item, itemIndex) => {
+                                    evaluationsSnapshot.forEach(evalDoc => {
+                                        const evaluation = evalDoc.data();
+                                        const fieldKey = `${cat.prefix}_${catIndex}_${itemIndex}`;
+                                        const score = evaluation.scores?.[fieldKey];
+                                        
+                                        if (score !== undefined && score !== null) {
+                                            detailedScores.push({
+                                                category: `${cat.name} - ${category.name}`,
+                                                itemName: item.name,
+                                                score: parseFloat(score),
+                                                evaluator: evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId
+                                            });
+                                        }
+                                    });
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+            
+            return detailedScores;
+        }
 
         // 退回單一主管的評分
         window.returnSingleEvaluation = async function(evaluationId, evaluatorName, employeeId, period) {
