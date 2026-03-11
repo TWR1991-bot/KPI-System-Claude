@@ -630,9 +630,7 @@
                             <div style="margin-bottom: 20px;">
                                 <label style="margin-right: 10px; font-weight: bold;">選擇年度：</label>
                                 <select id="subordinateYear" onchange="window.loadSubordinateYearlyScores()">
-                                    <option value="2026">2026年</option>
-                                    <option value="2025">2025年</option>
-                                    <option value="2024" selected>2024年</option>
+                                    <option value="2026" selected>2026年</option>
                                 </select>
                             </div>
                             <div id="subordinateYearlyContainer">
@@ -4420,7 +4418,7 @@
                                     <td>
                                         <button class="btn btn-secondary" onclick="window.viewEvaluationDetails('${emp.userId}', '${period}')">查看明細</button>
                                         <button class="btn btn-primary" onclick="window.analyzeAnomalies('${emp.userId}', '${period}', '${emp.name}')" style="background: #f59e0b;">異常分析</button>
-                                        ${!currentUser.isManagerialStaff ? '<button class="btn btn-danger" onclick="window.returnEvaluations(\'' + emp.userId + '\', \'' + period + '\')">全部退單</button>' : ''}
+                                        ${!(currentUser.isManagerialStaff || currentUser.level === 'L5') ? '<button class="btn btn-danger" onclick="window.returnEvaluations(\'' + emp.userId + '\', \'' + period + '\')">全部退單</button>' : ''}
                                     </td>
                                 </tr>
                             </tbody>
@@ -4534,7 +4532,7 @@
                     scoresHtml += '</tbody></table></div>';
                     
                     // 決定是否顯示退單按鈕
-                    const showReturnButton = !currentUser.isManagerialStaff;
+                    const showReturnButton = !(currentUser.isManagerialStaff || currentUser.level === 'L5');
                     
                     detailsHtml += `
                         <div style="background: #f7fafc; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #1E88E5;">
@@ -4573,8 +4571,8 @@
                     const checkerName = kpiData.checkerName || '未知';
                     const checkerId = kpiData.checkerId || '';
                     
-                    // 決定是否顯示退單按鈕
-                    const showKPIReturnButton = !currentUser.isManagerialStaff;
+                    // 決定是否顯示退單按鈕（管理職主管和L5主管都不顯示）
+                    const showKPIReturnButton = !(currentUser.isManagerialStaff || currentUser.level === 'L5');
                     
                     // 顯示評核結果詳情
                     let resultsDetail = '';
