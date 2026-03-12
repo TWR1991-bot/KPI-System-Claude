@@ -1613,6 +1613,7 @@
                             <button class="tab" onclick="window.switchTab(${currentUser.role === 'admin' ? '3' : '2'})">編輯考核表</button>
                             <button class="tab" onclick="window.switchTab(${currentUser.role === 'admin' ? '4' : '3'})">KPI檢核管理</button>
                             <button class="tab" onclick="window.switchTab(${currentUser.role === 'admin' ? '5' : '4'})">評分進度追蹤</button>
+                            <button class="tab" onclick="window.switchTab(${currentUser.role === 'admin' ? '6' : '5'})">系統說明</button>
                         </div>
                         
                         ${currentUser.role === 'admin' ? `
@@ -1651,6 +1652,252 @@
                         </div>
                         <div id="tab${currentUser.role === 'admin' ? '5' : '4'}" class="tab-content">
                             ${renderProgressTracking()}
+                        </div>
+                        
+                        <!-- 系統說明頁籤 -->
+                        <div id="tab${currentUser.role === 'admin' ? '6' : '5'}" class="tab-content">
+                            <h2>📋 系統邏輯說明</h2>
+                            
+                            <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 1200px;">
+                                
+                                <!-- 評分機制 -->
+                                <section style="margin-bottom: 40px;">
+                                    <h3 style="color: #1E88E5; border-bottom: 2px solid #1E88E5; padding-bottom: 10px; margin-bottom: 20px;">
+                                        ⭐ 評分機制
+                                    </h3>
+                                    <ul style="line-height: 2; color: #2d3748;">
+                                        <li>每位員工由<strong>多位主管</strong>進行評分，系統會自動計算平均分數</li>
+                                        <li>評分表的<strong>大類、項目、佔比</strong>都在「編輯考核表」中設定：
+                                            <ul style="margin-top: 10px;">
+                                                <li>管理員可在後台「編輯考核表」自訂大類名稱</li>
+                                                <li>每個大類可設定多個評分項目</li>
+                                                <li>每個大類可設定<strong>佔比百分比</strong>（如：工作表現40%、綜合表現20%等）</li>
+                                                <li>所有佔比設定都是<strong>彈性可調整</strong>的，非固定值</li>
+                                            </ul>
+                                        </li>
+                                        <li><strong>欄位設定</strong>：
+                                            <ul style="margin-top: 10px;">
+                                                <li>每個評分項目可設定為<strong>一般欄位</strong>或<strong>KPI欄位</strong></li>
+                                                <li>一般欄位：主管直接評分（1-5分）</li>
+                                                <li><strong>KPI欄位</strong>：該欄位的分數會自動從KPI檢核結果<strong>回串</strong></li>
+                                                <li>KPI欄位在主管評分時會顯示為「由KPI檢核提供」</li>
+                                            </ul>
+                                        </li>
+                                        <li><strong>KPI檢核</strong>：
+                                            <ul style="margin-top: 10px;">
+                                                <li>KPI分數<strong>獨立呈現</strong>，由指定檢核人員填寫</li>
+                                                <li>KPI採勾選制（達成 ✓ / 未達成 ✗）</li>
+                                                <li>KPI檢核完成後，分數會<strong>自動回串</strong>到考核表的KPI欄位</li>
+                                                <li>KPI可設定不同檢核頻率（日/周/月檢核）</li>
+                                            </ul>
+                                        </li>
+                                        <li><strong>總分計算</strong>：總分 = 所有大類分數相加（包含從KPI回串的分數）
+                                            <ul style="margin-top: 10px;">
+                                                <li>總分<strong>可能超過100分</strong>，因為KPI是獨立計算後再加入</li>
+                                                <li>每個大類分數 = 該大類的平均分 × 該大類佔比</li>
+                                                <li>如果有KPI欄位，該欄位會使用從KPI檢核回串的分數</li>
+                                            </ul>
+                                        </li>
+                                        <li>主管可儲存<strong>草稿</strong>，正式送出後才會計入評分</li>
+                                        <li>已送出的評分可由管理員<strong>退單</strong>，退單後主管可重新修改</li>
+                                    </ul>
+                                </section>
+                                
+                                <!-- 評核頻率 -->
+                                <section style="margin-bottom: 40px;">
+                                    <h3 style="color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px; margin-bottom: 20px;">
+                                        📅 評核頻率設定
+                                    </h3>
+                                    <ul style="line-height: 2; color: #2d3748;">
+                                        <li>評核頻率<strong>依員工個別設定</strong>，與職等無關</li>
+                                        <li>每位員工可設定為：
+                                            <ul style="margin-top: 10px;">
+                                                <li><strong>月評核</strong>：每月進行評核（1, 2, 3, ..., 12月）</li>
+                                                <li><strong>季評核</strong>：每季進行評核（3, 6, 9, 12月）</li>
+                                            </ul>
+                                        </li>
+                                        <li>在「人員管理」中可為每位員工設定評核頻率</li>
+                                        <li>只有<strong>管理員</strong>可以修改評核頻率設定</li>
+                                    </ul>
+                                </section>
+                                
+                                <!-- 鎖單機制 -->
+                                <section style="margin-bottom: 40px;">
+                                    <h3 style="color: #f59e0b; border-bottom: 2px solid #f59e0b; padding-bottom: 10px; margin-bottom: 20px;">
+                                        🔒 鎖單機制
+                                    </h3>
+                                    <ul style="line-height: 2; color: #2d3748;">
+                                        <li>鎖單機制為<strong>完全手動控制</strong>，由管理員決定何時鎖定</li>
+                                        <li>在「評分進度追蹤」中可以<strong>勾選checkbox</strong>來鎖定/解鎖特定月份</li>
+                                        <li>鎖定後效果：
+                                            <ul style="margin-top: 10px;">
+                                                <li>主管<strong>無法開始新的評分</strong></li>
+                                                <li>未送出的<strong>草稿無法編輯</strong></li>
+                                                <li>已送出的評分<strong>不受影響</strong></li>
+                                            </ul>
+                                        </li>
+                                        <li>管理員可以<strong>隨時解鎖</strong>，解鎖後主管可繼續評分</li>
+                                        <li>系統會記錄<strong>誰在何時</strong>進行鎖定/解鎖操作</li>
+                                    </ul>
+                                </section>
+                                
+                                <!-- 權限設定 -->
+                                <section style="margin-bottom: 40px;">
+                                    <h3 style="color: #8b5cf6; border-bottom: 2px solid #8b5cf6; padding-bottom: 10px; margin-bottom: 20px;">
+                                        👥 權限設定
+                                    </h3>
+                                    <ul style="line-height: 2; color: #2d3748;">
+                                        <li><strong>系統管理員（Admin）</strong>：
+                                            <ul style="margin-top: 10px;">
+                                                <li>擁有<strong>所有功能</strong>的完整權限</li>
+                                                <li>可以管理人員、編輯考核表範本、管理KPI範本</li>
+                                                <li>可以查看所有統計資料並使用退單功能</li>
+                                            </ul>
+                                        </li>
+                                        <li><strong>一般主管（Manager）</strong>：
+                                            <ul style="margin-top: 10px;">
+                                                <li>可以對<strong>指定的員工</strong>進行評分（在人員管理中設定）</li>
+                                                <li>可以查看「部屬成績」和「員工年度成績」</li>
+                                                <li>可以使用「異常分析」功能</li>
+                                                <li><strong>無法進入</strong>管理後台</li>
+                                            </ul>
+                                        </li>
+                                        <li><strong>L5主管</strong>：
+                                            <ul style="margin-top: 10px;">
+                                                <li>L5主管<strong>可以進入</strong>管理後台查看所有資料</li>
+                                                <li>可以查看考核統計表、職等比對圖表等</li>
+                                                <li><strong>無法使用退單功能</strong>（只能查看）</li>
+                                                <li>設定方式：在Firebase中將主管的 level 欄位設為 "L5"</li>
+                                            </ul>
+                                        </li>
+                                        <li><strong>管理職主管（isManagerialStaff）</strong>：
+                                            <ul style="margin-top: 10px;">
+                                                <li>可以進入管理後台查看所有資料</li>
+                                                <li><strong>無法使用退單功能</strong>（避免干預基層管理）</li>
+                                                <li>設定方式：在Firebase中將主管的 isManagerialStaff 欄位設為 true</li>
+                                            </ul>
+                                        </li>
+                                    </ul>
+                                </section>
+                                
+                                <!-- KPI檢核 -->
+                                <section style="margin-bottom: 40px;">
+                                    <h3 style="color: #ec4899; border-bottom: 2px solid #ec4899; padding-bottom: 10px; margin-bottom: 20px;">
+                                        ✅ KPI檢核機制
+                                    </h3>
+                                    <ul style="line-height: 2; color: #2d3748;">
+                                        <li>KPI檢核是<strong>獨立的評核系統</strong>，由指定的檢核人員填寫</li>
+                                        <li>KPI<strong>佔比由評核表設定決定</strong>（在「編輯考核表」中設定該欄位的佔比）：
+                                            <ul style="margin-top: 10px;">
+                                                <li>管理員在編輯考核表時，可將某個欄位設為「KPI欄位」</li>
+                                                <li>該欄位所屬的大類佔比，決定了KPI對總分的影響</li>
+                                                <li>例如：如果KPI欄位在佔比25%的大類中，KPI就影響25%的分數</li>
+                                            </ul>
+                                        </li>
+                                        <li>每位員工的KPI由<strong>指定的檢核人員</strong>填寫（在人員管理中設定）</li>
+                                        <li>KPI採用<strong>勾選制</strong>：
+                                            <ul style="margin-top: 10px;">
+                                                <li>✓ 達成：計入分數</li>
+                                                <li>✗ 未達成：不計分</li>
+                                            </ul>
+                                        </li>
+                                        <li>KPI範本可以設定<strong>檢核頻率</strong>：日檢核、周檢核、月檢核</li>
+                                        <li><strong>KPI分數回串機制</strong>：
+                                            <ul style="margin-top: 10px;">
+                                                <li>KPI檢核完成後，系統會<strong>自動計算分數</strong>（達成項目數 ÷ 總項目數）× 5</li>
+                                                <li>計算出的分數會<strong>自動回串</strong>到考核表的KPI欄位</li>
+                                                <li>主管在評分時，KPI欄位會顯示為「由KPI檢核提供」，無需手動評分</li>
+                                                <li>KPI分數會隨該欄位所屬大類的佔比，計入最終總分</li>
+                                            </ul>
+                                        </li>
+                                        <li>KPI評核可以<strong>獨立退單</strong>，不影響一般評核</li>
+                                        <li>只有<strong>該KPI範本的指定檢核人</strong>可以填寫</li>
+                                        <li><strong>重要</strong>：因為KPI是獨立計算後加入，<strong>總分可能超過100分</strong></li>
+                                    </ul>
+                                </section>
+                                
+                                <!-- 異常分析 -->
+                                <section style="margin-bottom: 40px;">
+                                    <h3 style="color: #ef4444; border-bottom: 2px solid #ef4444; padding-bottom: 10px; margin-bottom: 20px;">
+                                        🔍 異常分析功能
+                                    </h3>
+                                    <ul style="line-height: 2; color: #2d3748;">
+                                        <li>異常分析會自動偵測以下三種情況：
+                                            <ul style="margin-top: 10px;">
+                                                <li><strong>完美評分</strong>：某項目所有主管都給滿分（5分）</li>
+                                                <li><strong>低分警示</strong>：平均分數低於2.2分的項目</li>
+                                                <li><strong>分數大幅下降</strong>：與上月相比下降≥1分的項目</li>
+                                            </ul>
+                                        </li>
+                                        <li>管理員和主管都可以使用異常分析功能</li>
+                                        <li>主管只能看到<strong>自己部屬</strong>的異常分析</li>
+                                        <li>管理員可以看到<strong>所有員工</strong>的異常分析</li>
+                                    </ul>
+                                </section>
+                                
+                                <!-- 職等與圖表 -->
+                                <section style="margin-bottom: 40px;">
+                                    <h3 style="color: #06b6d4; border-bottom: 2px solid #06b6d4; padding-bottom: 10px; margin-bottom: 20px;">
+                                        📊 職等比對與圖表
+                                    </h3>
+                                    <ul style="line-height: 2; color: #2d3748;">
+                                        <li>系統支援五個職等：<strong>L1、L2、L3、L4、L5</strong></li>
+                                        <li>「職等比對圖表」會顯示<strong>每個職等的員工</strong>年度績效趨勢</li>
+                                        <li>圖表會依據員工的<strong>評核頻率</strong>顯示對應月份：
+                                            <ul style="margin-top: 10px;">
+                                                <li>月評核：顯示全部12個月</li>
+                                                <li>季評核：只顯示3, 6, 9, 12月</li>
+                                            </ul>
+                                        </li>
+                                        <li>如果同職等有多種評核頻率，<strong>以月評核為準</strong>（顯示全部12月）</li>
+                                        <li>圖表下方會顯示詳細分數表格，包含月比較和年平均</li>
+                                    </ul>
+                                </section>
+                                
+                                <!-- 資料儲存 -->
+                                <section style="margin-bottom: 40px;">
+                                    <h3 style="color: #14b8a6; border-bottom: 2px solid #14b8a6; padding-bottom: 10px; margin-bottom: 20px;">
+                                        💾 資料儲存與計算
+                                    </h3>
+                                    <ul style="line-height: 2; color: #2d3748;">
+                                        <li>所有資料儲存在<strong>Firebase Firestore</strong>資料庫</li>
+                                        <li>評分資料結構：
+                                            <ul style="margin-top: 10px;">
+                                                <li><strong>evaluations</strong>集合：儲存每次評分記錄</li>
+                                                <li><strong>kpi_evaluations</strong>集合：儲存KPI評核記錄</li>
+                                                <li><strong>users</strong>集合：儲存人員資料和權限設定</li>
+                                                <li><strong>system_settings</strong>集合：儲存月份鎖定狀態</li>
+                                            </ul>
+                                        </li>
+                                        <li>分數計算<strong>即時進行</strong>，不預先儲存總分</li>
+                                        <li>查詢資料時會<strong>動態計算</strong>平均分數和總分</li>
+                                        <li>草稿狀態（status: 'draft'）不計入統計</li>
+                                        <li>只有已送出（status: 'submitted'）的評分才會計入</li>
+                                    </ul>
+                                </section>
+                                
+                                <!-- 特殊規則 -->
+                                <section style="margin-bottom: 20px;">
+                                    <h3 style="color: #f97316; border-bottom: 2px solid #f97316; padding-bottom: 10px; margin-bottom: 20px;">
+                                        ⚙️ 特殊規則與限制
+                                    </h3>
+                                    <ul style="line-height: 2; color: #2d3748;">
+                                        <li><strong>重複評分偵測</strong>：同一主管對同一員工同一月份只能有一筆已送出的評分</li>
+                                        <li><strong>評分驗證</strong>：每個項目分數必須在0-5分之間</li>
+                                        <li><strong>評語必填</strong>：送出評分時必須填寫評語</li>
+                                        <li><strong>月份格式</strong>：系統使用 YYYYMM 格式（如：202602）</li>
+                                        <li><strong>權限檢查</strong>：每個操作都會檢查當前用戶權限</li>
+                                        <li><strong>鎖定檢查</strong>：操作前會檢查該月份是否已鎖定</li>
+                                        <li><strong>年度選擇</strong>：「員工年度成績」預設從2026年開始</li>
+                                    </ul>
+                                </section>
+                                
+                                <div style="margin-top: 40px; padding: 20px; background: #f0f9ff; border-left: 4px solid #1E88E5; border-radius: 5px;">
+                                    <p style="margin: 0; color: #1e40af; font-weight: 500;">
+                                        💡 <strong>提示：</strong>如需修改系統邏輯或新增功能，請聯繫系統管理員。所有修改都需要經過測試以確保資料完整性。
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
