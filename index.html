@@ -1824,11 +1824,12 @@
                                     <ul style="line-height: 2; color: #2d3748;">
                                         <li>異常分析會自動偵測以下三種情況：
                                             <ul style="margin-top: 10px;">
-                                                <li><strong>完美評分</strong>：某項目所有主管都給滿分（5分）</li>
-                                                <li><strong>低分警示</strong>：平均分數低於2.2分的項目</li>
-                                                <li><strong>分數大幅下降</strong>：與上月相比下降≥1分的項目</li>
+                                                <li><strong>優異表現</strong>：該小項的平均分數≥4.5分</li>
+                                                <li><strong>低分警示</strong>：該小項的平均分數低於2.2分</li>
+                                                <li><strong>分數大幅下降</strong>：該小項的平均分數與上月相比下降≥1分</li>
                                             </ul>
                                         </li>
+                                        <li><strong>重要</strong>：異常分析針對每個<strong>小項</strong>進行，顯示的是所有評分人給該小項的<strong>平均分數</strong></li>
                                         <li>管理員和主管都可以使用異常分析功能</li>
                                         <li>主管只能看到<strong>自己部屬</strong>的異常分析</li>
                                         <li>管理員可以看到<strong>所有員工</strong>的異常分析</li>
@@ -4921,6 +4922,19 @@
                 const currentScores = await getDetailedScores(employeeId, period);
                 const previousScores = await getDetailedScores(employeeId, previousPeriod);
                 
+                // 調試信息
+                console.log('=== 異常分析調試 ===');
+                console.log('員工ID:', employeeId);
+                console.log('期間:', period);
+                console.log('currentScores:', currentScores);
+                console.log('currentScores數量:', currentScores ? currentScores.length : 0);
+                if (currentScores) {
+                    console.log('所有項目分數:');
+                    currentScores.forEach(item => {
+                        console.log(`  ${item.category} - ${item.itemName}: ${item.score.toFixed(2)}分 (${item.evaluators})`);
+                    });
+                }
+                
                 if (!currentScores) {
                     content.innerHTML = '<p style="color: #dc2626;">本月無評核資料</p>';
                     return;
@@ -4932,21 +4946,27 @@
                 const decreasedItems = [];    // 與上月相比減少1分以上的項目
                 
                 // 分析當月項目
+                console.log('\n=== 開始分析異常項目 ===');
                 currentScores.forEach(item => {
-                    // 滿分項目（3分）
-                    if (item.score === 3) {
+                    // 優異表現項目（平均分數>=4.5分）
+                    if (item.score >= 4.5) {
+                        console.log(`✅ 優異: ${item.itemName} - ${item.score.toFixed(2)}`);
                         perfectItems.push(item);
                     }
                     
                     // 低於2.2分的項目
                     if (item.score < 2.2) {
+                        console.log(`⚠️ 需要改進: ${item.itemName} - ${item.score.toFixed(2)}`);
                         lowItems.push(item);
+                    } else {
+                        console.log(`   一般: ${item.itemName} - ${item.score.toFixed(2)} (>= 2.2，不列入)`);
                     }
                     
                     // 與上月比較
                     if (previousScores) {
-                        const prevItem = previousScores.find(p => p.itemName === item.itemName);
+                        const prevItem = previousScores.find(p => p.itemName === item.itemName && p.category === item.category);
                         if (prevItem && (prevItem.score - item.score) >= 1) {
+                            console.log(`📉 退步: ${item.itemName} - 上月${prevItem.score.toFixed(2)} → 本月${item.score.toFixed(2)}`);
                             decreasedItems.push({
                                 ...item,
                                 prevScore: prevItem.score,
@@ -4956,20 +4976,25 @@
                     }
                 });
                 
+                console.log('\n=== 分析結果 ===');
+                console.log('優異表現:', perfectItems.length, '項');
+                console.log('需要改進:', lowItems.length, '項');
+                console.log('退步項目:', decreasedItems.length, '項');
+                
                 // 生成報告HTML
                 let html = '<div style="display: grid; gap: 20px;">';
                 
-                // 滿分項目
+                // 優異表現項目
                 html += `
                     <div style="background: #d1fae5; padding: 15px; border-radius: 8px; border-left: 4px solid #059669;">
-                        <h4 style="color: #059669; margin-bottom: 10px;">🏆 滿分項目（${perfectItems.length}項）</h4>
+                        <h4 style="color: #059669; margin-bottom: 10px;">🏆 優異表現（平均≥4.5分，${perfectItems.length}項）</h4>
                         ${perfectItems.length > 0 ? `
                             <table style="width: 100%; font-size: 0.9em;">
                                 <thead>
                                     <tr style="background: #a7f3d0;">
                                         <th style="padding: 8px; text-align: left;">類別</th>
                                         <th style="padding: 8px; text-align: left;">項目名稱</th>
-                                        <th style="padding: 8px; text-align: center;">分數</th>
+                                        <th style="padding: 8px; text-align: center;">平均分數</th>
                                         <th style="padding: 8px; text-align: left;">評分人</th>
                                     </tr>
                                 </thead>
@@ -4978,13 +5003,13 @@
                                         <tr>
                                             <td style="padding: 8px;">${item.category}</td>
                                             <td style="padding: 8px;">${item.itemName}</td>
-                                            <td style="padding: 8px; text-align: center; font-weight: bold; color: #059669;">3.0</td>
-                                            <td style="padding: 8px;">${item.evaluator}</td>
+                                            <td style="padding: 8px; text-align: center; font-weight: bold; color: #059669;">${item.score.toFixed(1)}</td>
+                                            <td style="padding: 8px; font-size: 0.85em;">${item.evaluators}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
                             </table>
-                        ` : '<p style="color: #64748b; margin: 0;">無滿分項目</p>'}
+                        ` : '<p style="color: #64748b; margin: 0;">無優異表現項目</p>'}
                     </div>
                 `;
                 
@@ -4998,7 +5023,7 @@
                                     <tr style="background: #fde68a;">
                                         <th style="padding: 8px; text-align: left;">類別</th>
                                         <th style="padding: 8px; text-align: left;">項目名稱</th>
-                                        <th style="padding: 8px; text-align: center;">分數</th>
+                                        <th style="padding: 8px; text-align: center;">平均分數</th>
                                         <th style="padding: 8px; text-align: left;">評分人</th>
                                     </tr>
                                 </thead>
@@ -5008,7 +5033,7 @@
                                             <td style="padding: 8px;">${item.category}</td>
                                             <td style="padding: 8px;">${item.itemName}</td>
                                             <td style="padding: 8px; text-align: center; font-weight: bold; color: #dc2626;">${item.score.toFixed(1)}</td>
-                                            <td style="padding: 8px;">${item.evaluator}</td>
+                                            <td style="padding: 8px; font-size: 0.85em;">${item.evaluators}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -5027,8 +5052,8 @@
                                     <tr style="background: #fecaca;">
                                         <th style="padding: 8px; text-align: left;">類別</th>
                                         <th style="padding: 8px; text-align: left;">項目名稱</th>
-                                        <th style="padding: 8px; text-align: center;">上月分數</th>
-                                        <th style="padding: 8px; text-align: center;">本月分數</th>
+                                        <th style="padding: 8px; text-align: center;">上月平均</th>
+                                        <th style="padding: 8px; text-align: center;">本月平均</th>
                                         <th style="padding: 8px; text-align: center;">差異</th>
                                         <th style="padding: 8px; text-align: left;">評分人</th>
                                     </tr>
@@ -5041,7 +5066,7 @@
                                             <td style="padding: 8px; text-align: center;">${item.prevScore.toFixed(1)}</td>
                                             <td style="padding: 8px; text-align: center; font-weight: bold; color: #dc2626;">${item.score.toFixed(1)}</td>
                                             <td style="padding: 8px; text-align: center; font-weight: bold; color: #dc2626;">-${item.decrease.toFixed(1)}</td>
-                                            <td style="padding: 8px;">${item.evaluator}</td>
+                                            <td style="padding: 8px; font-size: 0.85em;">${item.evaluators}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -5055,9 +5080,9 @@
                     <div style="background: #e0f2fe; padding: 15px; border-radius: 8px;">
                         <h4 style="color: #0369a1; margin-bottom: 10px;">📝 總結</h4>
                         <ul style="margin: 0; padding-left: 20px; color: #0c4a6e;">
-                            <li>優異表現：${perfectItems.length} 個項目獲得滿分</li>
-                            <li>需要關注：${lowItems.length} 個項目低於2.2分</li>
-                            <li>退步警示：${decreasedItems.length} 個項目較上月減少1分以上</li>
+                            <li>優異表現：${perfectItems.length} 個項目平均分數≥4.5分</li>
+                            <li>需要關注：${lowItems.length} 個項目平均分數低於2.2分</li>
+                            <li>退步警示：${decreasedItems.length} 個項目平均分數較上月減少1分以上</li>
                         </ul>
                     </div>
                 `;
@@ -5073,14 +5098,22 @@
 
         // 取得詳細評分資料（用於異常分析）
         async function getDetailedScores(employeeId, period) {
+            console.log('\n>>> getDetailedScores 被調用');
+            console.log('    員工ID:', employeeId);
+            console.log('    期間:', period);
+            
             const templateId = `${employeeId}_${period}`;
+            console.log('    範本ID:', templateId);
+            
             const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
             
             if (!templateDoc.exists()) {
+                console.error('    ❌ 範本不存在');
                 return null;
             }
             
             const template = templateDoc.data();
+            console.log('    ✅ 範本類型:', template.templateType);
             
             // 取得所有評分
             const evaluationsQuery = query(
@@ -5091,8 +5124,28 @@
             );
             
             const evaluationsSnapshot = await getDocs(evaluationsQuery);
+            console.log('    ✅ 評分記錄數:', evaluationsSnapshot.size);
+            
+            // 立即輸出第一筆evaluation的scores結構
+            if (evaluationsSnapshot.size > 0) {
+                evaluationsSnapshot.forEach((evalDoc, index) => {
+                    if (index === 0) {
+                        const firstEval = evalDoc.data();
+                        console.log('    >>> [立即診斷] 第一筆evaluation的scores:');
+                        console.log(firstEval.scores);
+                        console.log('    >>> [立即診斷] scores的所有keys:');
+                        const keys = Object.keys(firstEval.scores || {});
+                        console.log(keys);
+                        console.log('    >>> [立即診斷] 前5個key的值:');
+                        keys.slice(0, 5).forEach(key => {
+                            console.log(`      ${key} = ${firstEval.scores[key]}`);
+                        });
+                    }
+                });
+            }
             
             if (evaluationsSnapshot.size === 0) {
+                console.warn('    ⚠️ 沒有評分記錄');
                 return null;
             }
             
@@ -5104,7 +5157,8 @@
                 evaluatorNames[user.userId] = user.name;
             });
             
-            const detailedScores = [];
+            // 用來累積每個小項的分數
+            const itemScoresMap = new Map();
             
             // 根據範本類型解析評分
             if (template.templateType === 'flat') {
@@ -5113,18 +5167,27 @@
                     template.categories.forEach(category => {
                         if (category.items && Array.isArray(category.items)) {
                             category.items.forEach(item => {
+                                // 保護：處理item可能是字串或物件的情況
+                                const itemName = typeof item === 'string' ? item : (item.name || item.description || '未命名項目');
+                                const itemIndex = typeof item === 'object' && item.index !== undefined ? item.index : 0;
+                                const itemKey = `${category.name}_${itemName}`;
+                                
                                 evaluationsSnapshot.forEach(evalDoc => {
                                     const evaluation = evalDoc.data();
-                                    const fieldKey = `flat_${category.index}_${item.index}`;
+                                    const fieldKey = `flat_${category.index}_${itemIndex}`;
                                     const score = evaluation.scores?.[fieldKey];
                                     
                                     if (score !== undefined && score !== null) {
-                                        detailedScores.push({
-                                            category: category.name,
-                                            itemName: item.name,
-                                            score: parseFloat(score),
-                                            evaluator: evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId
-                                        });
+                                        if (!itemScoresMap.has(itemKey)) {
+                                            itemScoresMap.set(itemKey, {
+                                                category: category.name,
+                                                itemName: itemName,
+                                                scores: [],
+                                                evaluators: []
+                                            });
+                                        }
+                                        itemScoresMap.get(itemKey).scores.push(parseFloat(score));
+                                        itemScoresMap.get(itemKey).evaluators.push(evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId);
                                     }
                                 });
                             });
@@ -5133,38 +5196,114 @@
                 }
             } else {
                 // L1、L2 結構化
+                console.log('    >>> 處理L1/L2結構化範本');
+                
                 const categories = [
                     { data: template.workPerformance, prefix: 'work', name: '工作表現' },
                     { data: template.comprehensivePerformance, prefix: 'comp', name: '綜合表現' },
                     { data: template.personalLearning, prefix: 'learning', name: '個人學習' }
                 ];
                 
+                console.log('    範本結構:');
+                console.log('      workPerformance:', template.workPerformance ? '存在' : '不存在');
+                console.log('      comprehensivePerformance:', template.comprehensivePerformance ? '存在' : '不存在');
+                console.log('      personalLearning:', template.personalLearning ? '存在' : '不存在');
+                
                 categories.forEach(cat => {
                     // 確保 cat.data 存在且是陣列
                     if (cat.data && Array.isArray(cat.data)) {
+                        console.log(`    >>> 處理類別: ${cat.name} (${cat.data.length}個子類)`);
+                        
+                        // 診斷：查看第一筆評分記錄的完整scores結構（只執行一次）
+                        if (cat.name === '工作表現') {
+                            evaluationsSnapshot.forEach((evalDoc, evalIndex) => {
+                                if (evalIndex === 0) {
+                                    const evaluation = evalDoc.data();
+                                    console.log(`    >>> [診斷] 第一筆評分記錄的完整scores結構:`);
+                                    console.log(evaluation.scores);
+                                    console.log(`    >>> [診斷] scores的所有key:`);
+                                    console.log(Object.keys(evaluation.scores || {}));
+                                    console.log(`    >>> [診斷] 範例幾個key的值:`);
+                                    console.log(`      work_0_0 =`, evaluation.scores?.['work_0_0']);
+                                    console.log(`      work_0_0_1 =`, evaluation.scores?.['work_0_0_1']);
+                                    console.log(`      work_0_0_2 =`, evaluation.scores?.['work_0_0_2']);
+                                }
+                            });
+                        }
+                        
                         cat.data.forEach((category, catIndex) => {
                             if (category.items && Array.isArray(category.items)) {
+                                console.log(`      子類${catIndex}: ${category.name} (${category.items.length}個項目)`);
+                                
                                 category.items.forEach((item, itemIndex) => {
+                                    const categoryName = `${cat.name} - ${category.name}`;
+                                    // 修正：item本身就是字串，不是物件
+                                    const itemName = typeof item === 'string' ? item : (item.name || item.description || '未命名項目');
+                                    const itemKey = `${categoryName}_${itemName}`;
+                                    const baseFieldKey = `${cat.prefix}_${catIndex}_${itemIndex}`;
+                                    
+                                    // 關鍵修正：L1/L2使用 _1 和 _2 後綴
+                                    const fieldKey1 = `${baseFieldKey}_1`;  // 執行力
+                                    const fieldKey2 = `${baseFieldKey}_2`;  // 錯誤率
+                                    
+                                    console.log(`        項目${itemIndex}: ${itemName.substring(0, 30)}... (keys: ${fieldKey1}, ${fieldKey2})`);
+                                    
                                     evaluationsSnapshot.forEach(evalDoc => {
                                         const evaluation = evalDoc.data();
-                                        const fieldKey = `${cat.prefix}_${catIndex}_${itemIndex}`;
-                                        const score = evaluation.scores?.[fieldKey];
+                                        const score1 = evaluation.scores?.[fieldKey1];
+                                        const score2 = evaluation.scores?.[fieldKey2];
                                         
-                                        if (score !== undefined && score !== null) {
-                                            detailedScores.push({
-                                                category: `${cat.name} - ${category.name}`,
-                                                itemName: item.name,
-                                                score: parseFloat(score),
-                                                evaluator: evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId
-                                            });
+                                        if (catIndex === 0 && itemIndex === 0) {
+                                            console.log(`          評分人${evaluation.evaluatorId}: ${fieldKey1}=${score1}, ${fieldKey2}=${score2}`);
+                                        }
+                                        
+                                        // 計算該評分人對這個項目的平均分數（執行力+錯誤率）
+                                        const scoresForThisEvaluator = [];
+                                        if (score1 !== undefined && score1 !== null && score1 !== '') scoresForThisEvaluator.push(parseFloat(score1));
+                                        if (score2 !== undefined && score2 !== null && score2 !== '') scoresForThisEvaluator.push(parseFloat(score2));
+                                        
+                                        if (scoresForThisEvaluator.length > 0) {
+                                            const avgForThisEvaluator = scoresForThisEvaluator.reduce((sum, s) => sum + s, 0) / scoresForThisEvaluator.length;
+                                            
+                                            if (!itemScoresMap.has(itemKey)) {
+                                                itemScoresMap.set(itemKey, {
+                                                    category: categoryName,
+                                                    itemName: itemName,
+                                                    scores: [],
+                                                    evaluators: []
+                                                });
+                                            }
+                                            itemScoresMap.get(itemKey).scores.push(avgForThisEvaluator);
+                                            itemScoresMap.get(itemKey).evaluators.push(evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId);
                                         }
                                     });
                                 });
                             }
                         });
+                    } else {
+                        console.warn(`    ⚠️ ${cat.name} 不是陣列或不存在`);
                     }
                 });
             }
+            
+            // 計算平均分數並轉換為最終格式
+            console.log(`    >>> itemScoresMap大小: ${itemScoresMap.size}`);
+            
+            const detailedScores = [];
+            itemScoresMap.forEach((data, key) => {
+                const avgScore = data.scores.reduce((sum, s) => sum + s, 0) / data.scores.length;
+                console.log(`    計算平均: ${data.itemName} = ${data.scores.join('+')} / ${data.scores.length} = ${avgScore.toFixed(2)}`);
+                
+                detailedScores.push({
+                    category: data.category,
+                    itemName: data.itemName,
+                    score: avgScore,
+                    evaluators: data.evaluators.join(', '),
+                    individualScores: data.scores  // 保留個別分數以供參考
+                });
+            });
+            
+            console.log(`    >>> 返回 ${detailedScores.length} 個項目\n`);
             
             return detailedScores;
         }
