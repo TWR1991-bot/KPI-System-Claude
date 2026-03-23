@@ -440,6 +440,17 @@
             margin-bottom: 20px;
             text-align: center;
         }
+
+        /* 隱藏數字輸入框的上下箭頭按鈕 */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
     </style>
 </head>
 <body>
@@ -1486,8 +1497,9 @@
             const formData = new FormData(form);
             const scores = {};
             
+            // 只存入有實際值的欄位，忽略空白欄位
             for (let [key, value] of formData.entries()) {
-                if (key !== 'comment') {
+                if (key !== 'comment' && value !== '' && value !== null) {
                     scores[key] = value;
                 }
             }
@@ -1534,8 +1546,9 @@
             const formData = new FormData(form);
             const scores = {};
             
+            // 只存入有實際值的欄位，忽略空白欄位
             for (let [key, value] of formData.entries()) {
-                if (key !== 'comment') {
+                if (key !== 'comment' && value !== '' && value !== null) {
                     scores[key] = value;
                 }
             }
