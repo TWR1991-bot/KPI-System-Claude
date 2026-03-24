@@ -2958,11 +2958,12 @@
                         const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
                         
                         if (templateDoc.exists()) {
-                            // 檢查所有主管是否已送出
+                            // 檢查所有主管是否已送出（只計算status='submitted'的評分）
                             const evaluationsQuery = query(
                                 collection(db, 'evaluations'),
                                 where('evaluateeId', '==', employee.userId),
-                                where('period', '==', period)
+                                where('period', '==', period),
+                                where('status', '==', 'submitted')  // 關鍵修正：只計算已送出的
                             );
                             const evaluationsSnapshot = await getDocs(evaluationsQuery);
                             
