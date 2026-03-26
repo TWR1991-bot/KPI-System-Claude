@@ -729,17 +729,25 @@
                     return;
                 }
                 
+                // 職等排序：L1 → L2 → L3 → L4 → L5
+                const levelOrder = { 'L1': 1, 'L2': 2, 'L3': 3, 'L4': 4, 'L5': 5 };
+                employees.sort((a, b) => {
+                    const orderA = levelOrder[a.level] || 99;
+                    const orderB = levelOrder[b.level] || 99;
+                    return orderA - orderB;
+                });
+                
                 // 計算上個月期間
                 const currentDate = new Date(period.slice(0, 4) + '-' + period.slice(4) + '-01');
                 currentDate.setMonth(currentDate.getMonth() - 1);
                 const previousPeriod = currentDate.toISOString().slice(0, 7).replace('-', '');
                 
-                // 取得上個月分數
-                const previousScores = {};
+                // 取得上個月完整分數（包含各大項）
+                const previousScoresData = {};
                 for (const emp of employees) {
                     const prevScores = await calculateEmployeeScores(emp.userId, previousPeriod);
                     if (prevScores) {
-                        previousScores[emp.userId] = prevScores.totalScore;
+                        previousScoresData[emp.userId] = prevScores;
                     }
                 }
                 
@@ -747,7 +755,8 @@
                 let html = '';
                 
                 employees.forEach(emp => {
-                    const prevScore = previousScores[emp.userId];
+                    const prevScoresData = previousScoresData[emp.userId];
+                    const prevScore = prevScoresData ? prevScoresData.totalScore : undefined;
                     let diff = null;
                     let diffClass = '';
                     let diffText = '-';
@@ -768,33 +777,96 @@
                         }
                     }
                     
+                    // 根據templateType決定顯示方式
+                    let scoreColumns = '';
+                    if (emp.scores.templateType === 'flat') {
+                        // L3、L4：顯示各大項分類的加權分數（100分制）
+                        const categoryScores = emp.scores.categoryScores || [];
+                        const prevCategoryScores = prevScoresData && prevScoresData.categoryScores ? prevScoresData.categoryScores : [];
+                        
+                        categoryScores.forEach((cat, index) => {
+                            // 比較與上月的差異
+                            let arrow = '';
+                            const prevCat = prevCategoryScores.find(pc => pc.name === cat.name);
+                            if (prevCat) {
+                                const categoryDiff = cat.weightedScore - prevCat.weightedScore;
+                                if (categoryDiff > 0.1) {
+                                    arrow = ' <span style="color: #059669; font-size: 1.2em;">↑</span>';
+                                } else if (categoryDiff < -0.1) {
+                                    arrow = ' <span style="color: #dc2626; font-size: 1.2em;">↓</span>';
+                                }
+                            }
+                            scoreColumns += `<td style="font-size: 0.9em;">${cat.weightedScore.toFixed(1)}${arrow}</td>`;
+                        });
+                    } else {
+                        // L1、L2：顯示工作表現、綜合表現、個人學習
+                        const categories = [
+                            { score: emp.scores.workScore, prevScore: prevScoresData ? prevScoresData.workScore : undefined },
+                            { score: emp.scores.compScore, prevScore: prevScoresData ? prevScoresData.compScore : undefined },
+                            { score: emp.scores.learningScore, prevScore: prevScoresData ? prevScoresData.learningScore : undefined }
+                        ];
+                        
+                        categories.forEach(cat => {
+                            let arrow = '';
+                            if (cat.prevScore !== undefined) {
+                                const categoryDiff = cat.score - cat.prevScore;
+                                if (categoryDiff > 0.1) {
+                                    arrow = ' <span style="color: #059669; font-size: 1.2em;">↑</span>';
+                                } else if (categoryDiff < -0.1) {
+                                    arrow = ' <span style="color: #dc2626; font-size: 1.2em;">↓</span>';
+                                }
+                            }
+                            scoreColumns += `<td style="font-size: 0.9em;">${cat.score.toFixed(1)}${arrow}</td>`;
+                        });
+                    }
+                    
                     html += `
                         <div style="background: white; padding: 25px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                             <h3 style="color: #1E88E5; margin-bottom: 20px;">${emp.name} (${emp.userId}) - ${emp.level}</h3>
-                            <table style="width: 100%;">
+                            <table style="width: 100%; font-size: 0.95em;">
                                 <thead>
                                     <tr>
-                                        <th>月份</th>
-                                        <th>工作表現</th>
-                                        <th>綜合表現</th>
-                                        <th>個人學習</th>
-                                        <th style="background: #fef3c7;">KPI檢核</th>
-                                        <th>總分</th>
-                                        <th>與上月比較</th>
-                                        <th>操作</th>
+                                        <th style="font-size: 0.9em;">月份</th>
+                    `;
+                    
+                    // 動態生成表頭（加入權重顯示）
+                    if (emp.scores.templateType === 'flat') {
+                        // L3、L4：顯示大項名稱和權重
+                        const categoryScores = emp.scores.categoryScores || [];
+                        categoryScores.forEach(cat => {
+                            html += `<th style="font-size: 0.85em;">${cat.name}<br><span style="color: #dc2626; font-size: 0.9em;">(${cat.weight}%)</span></th>`;
+                        });
+                    } else {
+                        // L1、L2：固定表頭，需要從scores中取得權重
+                        // 從範本獲取權重
+                        const workWeight = emp.scores.workWeight || '-';
+                        const compWeight = emp.scores.compWeight || '-';
+                        const learningWeight = emp.scores.learningWeight || '-';
+                        
+                        html += `
+                            <th style="font-size: 0.85em;">工作表現<br><span style="color: #dc2626; font-size: 0.9em;">(${workWeight}%)</span></th>
+                            <th style="font-size: 0.85em;">綜合表現<br><span style="color: #dc2626; font-size: 0.9em;">(${compWeight}%)</span></th>
+                            <th style="font-size: 0.85em;">個人學習<br><span style="color: #dc2626; font-size: 0.9em;">(${learningWeight}%)</span></th>
+                        `;
+                    }
+                    
+                    html += `
+                                        <th style="background: #fef3c7; font-size: 0.9em;">KPI檢核</th>
+                                        <th style="font-size: 0.9em;">總分</th>
+                                        <th style="font-size: 0.9em;">與上月比較</th>
+                                        <th style="font-size: 0.9em;">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td>${period.slice(0,4)}年${period.slice(4)}月</td>
-                                        <td>${emp.scores.workScore.toFixed(1)}</td>
-                                        <td>${emp.scores.compScore.toFixed(1)}</td>
-                                        <td>${emp.scores.learningScore.toFixed(1)}</td>
-                                        <td style="background: #fef3c7; font-weight: bold;">${(emp.scores.kpiScore || 0).toFixed(1)}</td>
-                                        <td><strong>${emp.scores.totalScore.toFixed(1)}</strong></td>
-                                        <td class="${diffClass}">${diffText}</td>
+                                        <td style="font-size: 0.9em;">${period.slice(0,4)}年${period.slice(4)}月</td>
+                                        ${scoreColumns}
+                                        <td style="background: #fef3c7; font-weight: bold; font-size: 0.9em;">${(emp.scores.kpiScore || 0).toFixed(1)}</td>
+                                        <td style="font-size: 0.9em;"><strong>${emp.scores.totalScore.toFixed(1)}</strong></td>
+                                        <td class="${diffClass}" style="font-size: 0.9em;">${diffText}</td>
                                         <td>
-                                            <button class="btn btn-primary" onclick="window.analyzeAnomalies('${emp.userId}', '${period}', '${emp.name}')" style="background: #f59e0b;">異常分析</button>
+                                            <button class="btn btn-primary" onclick="window.showScoreDetails('${emp.userId}', '${period}', '${emp.name}')" style="background: #1E88E5; font-size: 0.85em; padding: 8px 12px;">總分報表</button>
+                                            <button class="btn btn-primary" onclick="window.analyzeAnomalies('${emp.userId}', '${period}', '${emp.name}')" style="background: #f59e0b; font-size: 0.85em; padding: 8px 12px;">異常分析</button>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -1198,9 +1270,22 @@
             
             // 檢查是否需要KPI自動回填
             let kpiAutoFillData = null;
+            console.log('=== 檢查KPI自動回填 ===');
+            console.log('employee.needKPI:', employee.needKPI);
+            console.log('employee.kpiSettings:', employee.kpiSettings);
+            
             if (employee.needKPI && employee.kpiSettings?.targetField) {
+                console.log('開始計算KPI自動回填...');
+                console.log('targetField:', employee.kpiSettings.targetField);
                 kpiAutoFillData = await calculateKPIAutoFill(employeeId, currentMonth, employee.kpiSettings.targetField);
+                console.log('計算結果:', kpiAutoFillData);
+            } else {
+                console.log('不符合KPI自動回填條件');
             }
+            console.log('=====================');
+            
+            // 將kpiAutoFillData儲存為全域變數，供save/submit使用
+            window.currentKpiAutoFillData = kpiAutoFillData;
             
             const modal = document.createElement('div');
             modal.className = 'modal active';
@@ -1291,16 +1376,39 @@
             
             for (const m of monthsToCalculate) {
                 const period = `${year}${String(m).padStart(2, '0')}`;
-                const kpiId = `kpi_${employeeId}_${period}`;
-                const kpiDoc = await getDoc(doc(db, 'kpi_checklists', kpiId));
                 
-                if (kpiDoc.exists() && kpiDoc.data().status === 'submitted') {
+                // 改用query查詢，而不是直接用文檔ID
+                // 因為文檔ID格式可能是 kpi_{checkerId}_{period}_{employeeId}
+                const kpiQuery = query(
+                    collection(db, 'kpi_checklists'),
+                    where('employeeId', '==', employeeId),
+                    where('period', '==', period),
+                    where('status', '==', 'submitted')
+                );
+                
+                const kpiSnapshot = await getDocs(kpiQuery);
+                
+                if (!kpiSnapshot.empty) {
+                    // 加總所有檢核人員的分數（不是平均）
+                    let totalScore = 0;
+                    let count = 0;
+                    
+                    kpiSnapshot.forEach(doc => {
+                        const kpiData = doc.data();
+                        totalScore += (kpiData.totalScore || 0);
+                        count++;
+                        console.log(`找到KPI檢核表: 檢核人員=${doc.id}, score=${kpiData.totalScore}`);
+                    });
+                    
+                    // 直接使用totalScore（加總），不要除以count
                     kpiScores.push({
                         month: m,
-                        score: kpiDoc.data().totalScore || 0
+                        score: totalScore  // 這是加總，不是平均
                     });
+                    console.log(`period=${period}, 檢核人員數=${count}, 總分=${totalScore}`);
                 } else {
                     missingMonths.push(`${m}月`);
+                    console.log(`找不到KPI檢核表: employeeId=${employeeId}, period=${period}`);
                 }
             }
             
@@ -1317,6 +1425,13 @@
             // 計算平均分數
             const averageScore = kpiScores.reduce((sum, s) => sum + s.score, 0) / kpiScores.length;
             const scoreOutOf5 = (averageScore / 100) * 5;
+            
+            console.log('=== calculateKPIAutoFill ===');
+            console.log('kpiScores:', kpiScores);
+            console.log('averageScore (100分制):', averageScore);
+            console.log('scoreOutOf5 (5分制):', scoreOutOf5);
+            console.log('targetField:', targetField);
+            console.log('===========================');
             
             // 取得欄位名稱
             const templateDoc = await getDoc(doc(db, 'evaluation_templates', `${employeeId}_${currentPeriod}`));
@@ -1504,7 +1619,28 @@
                 }
             }
             
+            // 手動加入KPI自動填充的分數（因為disabled欄位不會出現在FormData中）
+            if (window.currentKpiAutoFillData && window.currentKpiAutoFillData.hasKPIData) {
+                const targetField = window.currentKpiAutoFillData.targetField;
+                const kpiScore = window.currentKpiAutoFillData.scoreOutOf5;
+                scores[targetField] = kpiScore.toFixed(2);
+            }
+            
             const comment = document.getElementById('comment').value;
+            
+            // 調試：檢查KPI自動回填
+            console.log('=== saveEvaluationDraft - 保存評分 ===');
+            console.log('currentKpiAutoFillData:', window.currentKpiAutoFillData);
+            if (window.currentKpiAutoFillData && window.currentKpiAutoFillData.hasKPIData) {
+                console.log('KPI自動回填數據存在');
+                console.log('targetField:', window.currentKpiAutoFillData.targetField);
+                console.log('scoreOutOf5:', window.currentKpiAutoFillData.scoreOutOf5);
+                console.log('已加入scores[' + window.currentKpiAutoFillData.targetField + ']:', scores[window.currentKpiAutoFillData.targetField]);
+            } else {
+                console.log('無KPI自動回填數據或hasKPIData=false');
+            }
+            console.log('最終scores:', scores);
+            console.log('========================================');
             
             await setDoc(doc(db, 'evaluations', evaluationId), {
                 evaluationId: evaluationId,
@@ -1553,7 +1689,28 @@
                 }
             }
             
+            // 手動加入KPI自動填充的分數（因為disabled欄位不會出現在FormData中）
+            if (window.currentKpiAutoFillData && window.currentKpiAutoFillData.hasKPIData) {
+                const targetField = window.currentKpiAutoFillData.targetField;
+                const kpiScore = window.currentKpiAutoFillData.scoreOutOf5;
+                scores[targetField] = kpiScore.toFixed(2);
+            }
+            
             const comment = document.getElementById('comment').value;
+            
+            // 調試：檢查KPI自動回填
+            console.log('=== submitEvaluation - 送出評分 ===');
+            console.log('currentKpiAutoFillData:', window.currentKpiAutoFillData);
+            if (window.currentKpiAutoFillData && window.currentKpiAutoFillData.hasKPIData) {
+                console.log('KPI自動回填數據存在');
+                console.log('targetField:', window.currentKpiAutoFillData.targetField);
+                console.log('scoreOutOf5:', window.currentKpiAutoFillData.scoreOutOf5);
+                console.log('已加入scores[' + window.currentKpiAutoFillData.targetField + ']:', scores[window.currentKpiAutoFillData.targetField]);
+            } else {
+                console.log('無KPI自動回填數據或hasKPIData=false');
+            }
+            console.log('最終scores:', scores);
+            console.log('=====================================');
             
             await setDoc(doc(db, 'evaluations', evaluationId), {
                 evaluationId: evaluationId,
@@ -4313,13 +4470,15 @@
             // 根據範本類型計算分數
             if (template.templateType === 'flat') {
                 // L3、L4 扁平化結構
-                const totalScore = calculateFlatScore(template.categories, evaluations);
+                const flatScoreResult = calculateFlatScore(template.categories, evaluations);
                 return {
+                    templateType: 'flat',
+                    categoryScores: flatScoreResult.categoryScores,  // 各大項分數
                     workScore: 0,
                     compScore: 0,
                     learningScore: 0,
-                    kpiScore: kpiScore,
-                    totalScore: totalScore + kpiScore,
+                    kpiScore: kpiScore,  // KPI分數僅用於顯示參考
+                    totalScore: flatScoreResult.totalScore,  // 總分不加KPI（KPI已回串到範本中）
                     evaluations: evaluations
                 };
             } else {
@@ -4341,13 +4500,25 @@
                     evaluations
                 );
                 
-                const totalScore = workScore + compScore + learningScore + kpiScore;
+                // 計算各大項的總權重
+                const workWeight = template.workPerformance ? 
+                    template.workPerformance.reduce((sum, cat) => sum + (cat.weight || 0), 0) : 0;
+                const compWeight = template.comprehensivePerformance ? 
+                    template.comprehensivePerformance.reduce((sum, cat) => sum + (cat.weight || 0), 0) : 0;
+                const learningWeight = template.personalLearning && template.personalLearning.weight ? 
+                    template.personalLearning.weight : 0;
+                
+                const totalScore = workScore + compScore + learningScore;  // 總分不加KPI（KPI已回串到範本中）
                 
                 return {
+                    templateType: 'structured',
                     workScore: workScore,
                     compScore: compScore,
                     learningScore: learningScore,
-                    kpiScore: kpiScore,
+                    workWeight: workWeight,
+                    compWeight: compWeight,
+                    learningWeight: learningWeight,
+                    kpiScore: kpiScore,  // KPI分數僅用於顯示參考
                     totalScore: totalScore,
                     evaluations: evaluations
                 };
@@ -4474,7 +4645,7 @@
         // 計算扁平化結構分數(L3、L4)
         function calculateFlatScore(categories, evaluations) {
             if (!categories || categories.length === 0) {
-                return 0;
+                return { totalScore: 0, categoryScores: [] };
             }
             
             const categoryResults = [];
@@ -4513,6 +4684,7 @@
                 if (itemScores.length > 0) {
                     const categoryAvg = itemScores.reduce((a, b) => a + b, 0) / itemScores.length;
                     categoryResults.push({
+                        name: category.name,
                         score: categoryAvg,
                         weight: category.weight,
                         hasScore: true
@@ -4520,6 +4692,7 @@
                 } else {
                     // 沒有分數但記錄佔比,用於均攤
                     categoryResults.push({
+                        name: category.name,
                         score: 0,
                         weight: category.weight,
                         hasScore: false
@@ -4534,22 +4707,32 @@
             
             // 如果沒有任何分數
             if (scoredWeight === 0) {
-                return 0;
+                return { totalScore: 0, categoryScores: categoryResults };
             }
             
-            // 計算最終分數
+            // 計算最終分數和各大項加權分數
             let finalScore = 0;
-            categoryResults.forEach(cat => {
+            const categoryScoresWithWeighted = categoryResults.map(cat => {
+                let weightedScore = 0;
                 if (cat.hasScore) {
                     // 調整後的佔比 = 原佔比 + (原佔比/已評分總佔比) × 未評分總佔比
                     const adjustedWeight = cat.weight + (cat.weight / scoredWeight) * unscoredWeight;
                     // 大項得分 = (小項平均分 / 5) × 調整後佔比
-                    const categoryScore = (cat.score / 5) * adjustedWeight;
-                    finalScore += categoryScore;
+                    weightedScore = (cat.score / 5) * adjustedWeight;
+                    finalScore += weightedScore;
                 }
+                return {
+                    name: cat.name,
+                    avgScore: cat.score,
+                    weightedScore: weightedScore,
+                    weight: cat.weight
+                };
             });
             
-            return finalScore;
+            return { 
+                totalScore: finalScore, 
+                categoryScores: categoryScoresWithWeighted 
+            };
         }
 
         // 計算個人學習分數
@@ -4614,24 +4797,33 @@
         async function renderStatisticsTable(employees, period) {
             const container = document.getElementById('statisticsContainer');
             
+            // 職等排序：L1 → L2 → L3 → L4 → L5
+            const levelOrder = { 'L1': 1, 'L2': 2, 'L3': 3, 'L4': 4, 'L5': 5 };
+            employees.sort((a, b) => {
+                const orderA = levelOrder[a.level] || 99;
+                const orderB = levelOrder[b.level] || 99;
+                return orderA - orderB;
+            });
+            
             // 計算上個月期間
             const currentDate = new Date(period.slice(0, 4) + '-' + period.slice(4) + '-01');
             currentDate.setMonth(currentDate.getMonth() - 1);
             const previousPeriod = currentDate.toISOString().slice(0, 7).replace('-', '');
             
-            // 取得上個月分數
-            const previousScores = {};
+            // 取得上個月完整分數（包含各大項）
+            const previousScoresData = {};
             for (const emp of employees) {
                 const prevScores = await calculateEmployeeScores(emp.userId, previousPeriod);
                 if (prevScores) {
-                    previousScores[emp.userId] = prevScores.totalScore;
+                    previousScoresData[emp.userId] = prevScores;
                 }
             }
             
             let html = '';
             
             employees.forEach(emp => {
-                const prevScore = previousScores[emp.userId];
+                const prevScoresData = previousScoresData[emp.userId];
+                const prevScore = prevScoresData ? prevScoresData.totalScore : undefined;
                 let diff = null;
                 let diffClass = '';
                 let diffText = '-';
@@ -4652,35 +4844,97 @@
                     }
                 }
                 
+                // 根據templateType決定顯示方式
+                let scoreColumns = '';
+                if (emp.scores.templateType === 'flat') {
+                    // L3、L4：顯示各大項分類的加權分數（100分制）
+                    const categoryScores = emp.scores.categoryScores || [];
+                    const prevCategoryScores = prevScoresData && prevScoresData.categoryScores ? prevScoresData.categoryScores : [];
+                    
+                    categoryScores.forEach((cat, index) => {
+                        // 比較與上月的差異
+                        let arrow = '';
+                        const prevCat = prevCategoryScores.find(pc => pc.name === cat.name);
+                        if (prevCat) {
+                            const categoryDiff = cat.weightedScore - prevCat.weightedScore;
+                            if (categoryDiff > 0.1) {
+                                arrow = ' <span style="color: #059669; font-size: 1.2em;">↑</span>';
+                            } else if (categoryDiff < -0.1) {
+                                arrow = ' <span style="color: #dc2626; font-size: 1.2em;">↓</span>';
+                            }
+                        }
+                        scoreColumns += `<td style="font-size: 0.9em;">${cat.weightedScore.toFixed(1)}${arrow}</td>`;
+                    });
+                } else {
+                    // L1、L2：顯示工作表現、綜合表現、個人學習
+                    const categories = [
+                        { score: emp.scores.workScore, prevScore: prevScoresData ? prevScoresData.workScore : undefined },
+                        { score: emp.scores.compScore, prevScore: prevScoresData ? prevScoresData.compScore : undefined },
+                        { score: emp.scores.learningScore, prevScore: prevScoresData ? prevScoresData.learningScore : undefined }
+                    ];
+                    
+                    categories.forEach(cat => {
+                        let arrow = '';
+                        if (cat.prevScore !== undefined) {
+                            const categoryDiff = cat.score - cat.prevScore;
+                            if (categoryDiff > 0.1) {
+                                arrow = ' <span style="color: #059669; font-size: 1.2em;">↑</span>';
+                            } else if (categoryDiff < -0.1) {
+                                arrow = ' <span style="color: #dc2626; font-size: 1.2em;">↓</span>';
+                            }
+                        }
+                        scoreColumns += `<td style="font-size: 0.9em;">${cat.score.toFixed(1)}${arrow}</td>`;
+                    });
+                }
+                
                 html += `
                     <div style="background: white; padding: 25px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                         <h3 style="color: #1E88E5; margin-bottom: 20px;">${emp.name} (${emp.userId}) - ${emp.level}</h3>
-                        <table style="width: 100%;">
+                        <table style="width: 100%; font-size: 0.95em;">
                             <thead>
                                 <tr>
-                                    <th>月份</th>
-                                    <th>工作表現</th>
-                                    <th>綜合表現</th>
-                                    <th>個人學習</th>
-                                    <th style="background: #fef3c7;">KPI檢核</th>
-                                    <th>總分</th>
-                                    <th>與上月比較</th>
-                                    <th>操作</th>
+                                    <th style="font-size: 0.9em;">月份</th>
+                `;
+                
+                // 動態生成表頭（加入權重顯示）
+                if (emp.scores.templateType === 'flat') {
+                    // L3、L4：顯示大項名稱和權重
+                    const categoryScores = emp.scores.categoryScores || [];
+                    categoryScores.forEach(cat => {
+                        html += `<th style="font-size: 0.85em;">${cat.name}<br><span style="color: #dc2626; font-size: 0.9em;">(${cat.weight}%)</span></th>`;
+                    });
+                } else {
+                    // L1、L2：固定表頭，需要從scores中取得權重
+                    const workWeight = emp.scores.workWeight || '-';
+                    const compWeight = emp.scores.compWeight || '-';
+                    const learningWeight = emp.scores.learningWeight || '-';
+                    
+                    html += `
+                        <th style="font-size: 0.85em;">工作表現<br><span style="color: #dc2626; font-size: 0.9em;">(${workWeight}%)</span></th>
+                        <th style="font-size: 0.85em;">綜合表現<br><span style="color: #dc2626; font-size: 0.9em;">(${compWeight}%)</span></th>
+                        <th style="font-size: 0.85em;">個人學習<br><span style="color: #dc2626; font-size: 0.9em;">(${learningWeight}%)</span></th>
+                    `;
+                }
+                
+                html += `
+                                    <th style="background: #fef3c7; font-size: 0.9em;">KPI檢核</th>
+                                    <th style="font-size: 0.9em;">總分</th>
+                                    <th style="font-size: 0.9em;">與上月比較</th>
+                                    <th style="font-size: 0.9em;">操作</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td>${period.slice(0,4)}年${period.slice(4)}月</td>
-                                    <td>${emp.scores.workScore.toFixed(1)}</td>
-                                    <td>${emp.scores.compScore.toFixed(1)}</td>
-                                    <td>${emp.scores.learningScore.toFixed(1)}</td>
-                                    <td style="background: #fef3c7; font-weight: bold;">${(emp.scores.kpiScore || 0).toFixed(1)}</td>
-                                    <td><strong>${emp.scores.totalScore.toFixed(1)}</strong></td>
-                                    <td class="${diffClass}">${diffText}</td>
+                                    <td style="font-size: 0.9em;">${period.slice(0,4)}年${period.slice(4)}月</td>
+                                    ${scoreColumns}
+                                    <td style="background: #fef3c7; font-weight: bold; font-size: 0.9em;">${(emp.scores.kpiScore || 0).toFixed(1)}</td>
+                                    <td style="font-size: 0.9em;"><strong>${emp.scores.totalScore.toFixed(1)}</strong></td>
+                                    <td class="${diffClass}" style="font-size: 0.9em;">${diffText}</td>
                                     <td>
-                                        <button class="btn btn-secondary" onclick="window.viewEvaluationDetails('${emp.userId}', '${period}')">查看明細</button>
-                                        <button class="btn btn-primary" onclick="window.analyzeAnomalies('${emp.userId}', '${period}', '${emp.name}')" style="background: #f59e0b;">異常分析</button>
-                                        ${!(currentUser.isManagerialStaff || currentUser.level === 'L5') ? '<button class="btn btn-danger" onclick="window.returnEvaluations(\'' + emp.userId + '\', \'' + period + '\')">全部退單</button>' : ''}
+                                        <button class="btn btn-secondary" onclick="window.viewEvaluationDetails('${emp.userId}', '${period}')" style="font-size: 0.85em; padding: 8px 12px;">查看明細</button>
+                                        <button class="btn btn-primary" onclick="window.showScoreDetails('${emp.userId}', '${period}', '${emp.name}')" style="background: #1E88E5; font-size: 0.85em; padding: 8px 12px;">總分報表</button>
+                                        <button class="btn btn-primary" onclick="window.analyzeAnomalies('${emp.userId}', '${period}', '${emp.name}')" style="background: #f59e0b; font-size: 0.85em; padding: 8px 12px;">異常分析</button>
+                                        ${!(currentUser.isManagerialStaff || currentUser.level === 'L5') ? '<button class="btn btn-danger" onclick="window.returnEvaluations(\'' + emp.userId + '\', \'' + period + '\')" style="font-size: 0.85em; padding: 8px 12px;">全部退單</button>' : ''}
                                     </td>
                                 </tr>
                             </tbody>
@@ -4908,6 +5162,380 @@
             `;
             
             document.body.appendChild(modal);
+        };
+
+        // 總分報表功能 - 顯示每個項目的主管平均分數
+        window.showScoreDetails = async function(employeeId, period, employeeName) {
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 1000px;">
+                    <span class="close-modal" onclick="this.closest('.modal').remove()">&times;</span>
+                    <h3>📋 ${employeeName} - ${period.slice(0,4)}年${period.slice(4)}月 總分報表</h3>
+                    <div id="scoreDetailsContent"></div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            const content = modal.querySelector('#scoreDetailsContent');
+            content.innerHTML = '<div class="loading">載入中...</div>';
+            
+            try {
+                // 取得員工資料以獲取KPI設定
+                const employeeDoc = await getDoc(doc(db, 'users', employeeId));
+                const employeeData = employeeDoc.exists() ? employeeDoc.data() : null;
+                const kpiTargetField = employeeData?.kpiSettings?.targetField || null;
+                
+                // 如果有KPI設定，計算KPI自動填充數據
+                let kpiAutoFillData = null;
+                if (kpiTargetField) {
+                    kpiAutoFillData = await calculateKPIAutoFill(employeeId, period, kpiTargetField);
+                }
+                
+                // 取得範本
+                const templateId = `${employeeId}_${period}`;
+                const templateDoc = await getDoc(doc(db, 'evaluation_templates', templateId));
+                
+                if (!templateDoc.exists()) {
+                    content.innerHTML = '<p style="color: #dc2626;">無評核範本資料</p>';
+                    return;
+                }
+                
+                const template = templateDoc.data();
+                
+                // 取得所有一般評核的評分
+                const evaluationsQuery = query(
+                    collection(db, 'evaluations'),
+                    where('evaluateeId', '==', employeeId),
+                    where('period', '==', period),
+                    where('status', '==', 'submitted')
+                );
+                
+                const evaluationsSnapshot = await getDocs(evaluationsQuery);
+                const evaluations = [];
+                evaluationsSnapshot.forEach(doc => {
+                    evaluations.push(doc.data());
+                });
+                
+                // 取得所有KPI檢核的評分
+                const kpiQuery = query(
+                    collection(db, 'kpi_checklists'),
+                    where('employeeId', '==', employeeId),
+                    where('period', '==', period),
+                    where('status', '==', 'submitted')
+                );
+                
+                const kpiSnapshot = await getDocs(kpiQuery);
+                const kpiEvaluations = [];
+                
+                // 計算所有KPI檢核的總分
+                if (!kpiSnapshot.empty && kpiTargetField) {
+                    let totalKpiScore = 0;
+                    const checkers = [];
+                    
+                    kpiSnapshot.forEach(doc => {
+                        const kpiData = doc.data();
+                        totalKpiScore += (kpiData.totalScore || 0);
+                        checkers.push(kpiData.checkerId || doc.id);
+                    });
+                    
+                    // 先加總再轉換為5分制
+                    const kpiScoreOutOf5 = (totalKpiScore / 100) * 5;
+                    
+                    console.log(`KPI檢核總分: ${totalKpiScore}% (${checkers.length}位檢核人員)`);
+                    console.log(`轉換為5分制: ${kpiScoreOutOf5.toFixed(2)}`);
+                    console.log(`檢核人員: ${checkers.join(', ')}`);
+                    
+                    // 將所有KPI檢核合併為一個「系統」評分
+                    kpiEvaluations.push({
+                        evaluatorId: 'KPI系統',
+                        scores: {
+                            [kpiTargetField]: kpiScoreOutOf5.toFixed(2)
+                        }
+                    });
+                }
+                
+                // 合併一般評核和KPI檢核
+                const allEvaluations = [...evaluations, ...kpiEvaluations];
+                
+                if (allEvaluations.length === 0) {
+                    content.innerHTML = '<p style="color: #a0aec0;">本月無已送出的評分資料</p>';
+                    return;
+                }
+                
+                // 取得主管名稱
+                const evaluatorNames = {};
+                const usersSnapshot = await getDocs(collection(db, 'users'));
+                usersSnapshot.forEach(doc => {
+                    const user = doc.data();
+                    evaluatorNames[user.userId] = user.name;
+                });
+                
+                // Debug信息
+                console.log('KPI Target Field:', kpiTargetField);
+                console.log('KPI AutoFill Data:', kpiAutoFillData);
+                
+                let html = '<div style="max-height: 600px; overflow-y: auto;">';
+                
+                // 根據範本類型顯示
+                if (template.templateType === 'flat') {
+                    // L3、L4 扁平化結構
+                    html += '<table style="width: 100%; margin-top: 20px;"><thead><tr><th>大類</th><th>評分項目</th><th>主管平均分數</th><th>各主管評分</th><th>Debug</th></tr></thead><tbody>';
+                    
+                    template.categories.forEach((category, catIndex) => {
+                        category.items.forEach((item, itemIndex) => {
+                            const itemKey = `flat_${catIndex}_${itemIndex}`;
+                            const allScores = [];
+                            const evaluatorScores = [];
+                            
+                            // 收集所有主管對這個項目的評分
+                            allEvaluations.forEach(evaluation => {
+                                const scoreValue = evaluation.scores[itemKey];
+                                console.log(`項目 ${itemKey}:`, scoreValue); // Debug
+                                if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
+                                    const score = parseFloat(scoreValue);
+                                    if (!isNaN(score)) {
+                                        allScores.push(score);
+                                        const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
+                                        evaluatorScores.push(`${evaluatorName}: ${score.toFixed(2)}`);
+                                    }
+                                }
+                            });
+                            
+                            // 計算平均分數
+                            const avgScore = allScores.length > 0 
+                                ? (allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(2)
+                                : '-';
+                            
+                            const evaluatorScoresText = evaluatorScores.length > 0 
+                                ? evaluatorScores.join('<br>') 
+                                : '<span style="color: #a0aec0;">無評分</span>';
+                            
+                            // 標記是否為KPI欄位
+                            const isKPIField = itemKey === kpiTargetField;
+                            const kpiMarker = isKPIField ? ' <span style="color: #059669; font-weight: bold;">📊 KPI自動評分</span>' : '';
+                            
+                            // Debug信息
+                            let debugInfo = `Key: ${itemKey}`;
+                            if (isKPIField) {
+                                debugInfo += '<br>✅ 是KPI欄位';
+                                if (kpiAutoFillData && kpiAutoFillData.hasKPIData) {
+                                    debugInfo += `<br>KPI分數: ${kpiAutoFillData.averageScore}% → ${kpiAutoFillData.scoreOutOf5.toFixed(2)}分`;
+                                } else {
+                                    debugInfo += '<br>❌ KPI資料不存在';
+                                }
+                            }
+                            
+                            html += `
+                                <tr style="${isKPIField ? 'background: #dcfce7;' : ''}">
+                                    <td style="font-size: 0.9em;">${category.name}</td>
+                                    <td style="font-size: 0.9em;">${item}${kpiMarker}</td>
+                                    <td style="font-weight: bold; font-size: 1.1em; ${isKPIField ? 'color: #059669;' : ''}">${avgScore}</td>
+                                    <td style="font-size: 0.85em; line-height: 1.6;">${evaluatorScoresText}</td>
+                                    <td style="font-size: 0.75em; color: #718096;">${debugInfo}</td>
+                                </tr>
+                            `;
+                        });
+                    });
+                    
+                    html += '</tbody></table>';
+                } else {
+                    // L1、L2 結構化
+                    html += '<h4 style="color: #1E88E5; margin-top: 20px;">工作表現</h4>';
+                    html += '<table style="width: 100%;"><thead><tr><th>大類</th><th>評分項目</th><th>欄位</th><th>主管平均分數</th><th>各主管評分</th></tr></thead><tbody>';
+                    
+                    template.workPerformance.forEach((category, catIndex) => {
+                        category.items.forEach((item, itemIndex) => {
+                            const itemKey = `work_${catIndex}_${itemIndex}`;
+                            
+                            // 執行力
+                            const scores1 = [];
+                            const evaluatorScores1 = [];
+                            allEvaluations.forEach(evaluation => {
+                                const scoreValue = evaluation.scores[`${itemKey}_1`];
+                                if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
+                                    const score = parseFloat(scoreValue);
+                                    if (!isNaN(score)) {
+                                        scores1.push(score);
+                                        const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
+                                        evaluatorScores1.push(`${evaluatorName}: ${score.toFixed(2)}`);
+                                    }
+                                }
+                            });
+                            
+                            // 錯誤率
+                            const scores2 = [];
+                            const evaluatorScores2 = [];
+                            allEvaluations.forEach(evaluation => {
+                                const scoreValue = evaluation.scores[`${itemKey}_2`];
+                                if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
+                                    const score = parseFloat(scoreValue);
+                                    if (!isNaN(score)) {
+                                        scores2.push(score);
+                                        const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
+                                        evaluatorScores2.push(`${evaluatorName}: ${score.toFixed(2)}`);
+                                    }
+                                }
+                            });
+                            
+                            const avg1 = scores1.length > 0 ? (scores1.reduce((a, b) => a + b, 0) / scores1.length).toFixed(2) : '-';
+                            const avg2 = scores2.length > 0 ? (scores2.reduce((a, b) => a + b, 0) / scores2.length).toFixed(2) : '-';
+                            
+                            html += `
+                                <tr>
+                                    <td rowspan="2" style="font-size: 0.9em;">${category.name}</td>
+                                    <td rowspan="2" style="font-size: 0.9em;">${item}</td>
+                                    <td style="font-size: 0.85em;">執行力</td>
+                                    <td style="font-weight: bold;">${avg1}</td>
+                                    <td style="font-size: 0.85em; line-height: 1.6;">${evaluatorScores1.join('<br>') || '<span style="color: #a0aec0;">無評分</span>'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-size: 0.85em;">錯誤率</td>
+                                    <td style="font-weight: bold;">${avg2}</td>
+                                    <td style="font-size: 0.85em; line-height: 1.6;">${evaluatorScores2.join('<br>') || '<span style="color: #a0aec0;">無評分</span>'}</td>
+                                </tr>
+                            `;
+                        });
+                    });
+                    
+                    html += '</tbody></table>';
+                    
+                    // 綜合表現
+                    html += '<h4 style="color: #1E88E5; margin-top: 20px;">綜合表現</h4>';
+                    html += '<table style="width: 100%;"><thead><tr><th>大類</th><th>評分項目</th><th>欄位</th><th>主管平均分數</th><th>各主管評分</th></tr></thead><tbody>';
+                    
+                    template.comprehensivePerformance.forEach((category, catIndex) => {
+                        category.items.forEach((item, itemIndex) => {
+                            const itemKey = `comp_${catIndex}_${itemIndex}`;
+                            
+                            // 執行力
+                            const scores1 = [];
+                            const evaluatorScores1 = [];
+                            allEvaluations.forEach(evaluation => {
+                                const scoreValue = evaluation.scores[`${itemKey}_1`];
+                                if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
+                                    const score = parseFloat(scoreValue);
+                                    if (!isNaN(score)) {
+                                        scores1.push(score);
+                                        const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
+                                        evaluatorScores1.push(`${evaluatorName}: ${score.toFixed(2)}`);
+                                    }
+                                }
+                            });
+                            
+                            // 錯誤率
+                            const scores2 = [];
+                            const evaluatorScores2 = [];
+                            allEvaluations.forEach(evaluation => {
+                                const scoreValue = evaluation.scores[`${itemKey}_2`];
+                                if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
+                                    const score = parseFloat(scoreValue);
+                                    if (!isNaN(score)) {
+                                        scores2.push(score);
+                                        const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
+                                        evaluatorScores2.push(`${evaluatorName}: ${score.toFixed(2)}`);
+                                    }
+                                }
+                            });
+                            
+                            const avg1 = scores1.length > 0 ? (scores1.reduce((a, b) => a + b, 0) / scores1.length).toFixed(2) : '-';
+                            const avg2 = scores2.length > 0 ? (scores2.reduce((a, b) => a + b, 0) / scores2.length).toFixed(2) : '-';
+                            
+                            html += `
+                                <tr>
+                                    <td rowspan="2" style="font-size: 0.9em;">${category.name}</td>
+                                    <td rowspan="2" style="font-size: 0.9em;">${item}</td>
+                                    <td style="font-size: 0.85em;">執行力</td>
+                                    <td style="font-weight: bold;">${avg1}</td>
+                                    <td style="font-size: 0.85em; line-height: 1.6;">${evaluatorScores1.join('<br>') || '<span style="color: #a0aec0;">無評分</span>'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="font-size: 0.85em;">錯誤率</td>
+                                    <td style="font-weight: bold;">${avg2}</td>
+                                    <td style="font-size: 0.85em; line-height: 1.6;">${evaluatorScores2.join('<br>') || '<span style="color: #a0aec0;">無評分</span>'}</td>
+                                </tr>
+                            `;
+                        });
+                    });
+                    
+                    html += '</tbody></table>';
+                    
+                    // 個人學習
+                    html += '<h4 style="color: #1E88E5; margin-top: 20px;">個人學習</h4>';
+                    html += '<table style="width: 100%;"><thead><tr><th>評分項目</th><th>欄位</th><th>主管平均分數</th><th>各主管評分</th></tr></thead><tbody>';
+                    
+                    template.personalLearning.items.forEach((item, itemIndex) => {
+                        const itemKey = `learn_${itemIndex}`;
+                        
+                        // 執行力
+                        const scores1 = [];
+                        const evaluatorScores1 = [];
+                        allEvaluations.forEach(evaluation => {
+                            const scoreValue = evaluation.scores[`${itemKey}_1`];
+                            if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
+                                const score = parseFloat(scoreValue);
+                                if (!isNaN(score)) {
+                                    scores1.push(score);
+                                    const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
+                                    evaluatorScores1.push(`${evaluatorName}: ${score.toFixed(2)}`);
+                                }
+                            }
+                        });
+                        
+                        // 錯誤率
+                        const scores2 = [];
+                        const evaluatorScores2 = [];
+                        allEvaluations.forEach(evaluation => {
+                            const scoreValue = evaluation.scores[`${itemKey}_2`];
+                            if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
+                                const score = parseFloat(scoreValue);
+                                if (!isNaN(score)) {
+                                    scores2.push(score);
+                                    const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
+                                    evaluatorScores2.push(`${evaluatorName}: ${score.toFixed(2)}`);
+                                }
+                            }
+                        });
+                        
+                        const avg1 = scores1.length > 0 ? (scores1.reduce((a, b) => a + b, 0) / scores1.length).toFixed(2) : '-';
+                        const avg2 = scores2.length > 0 ? (scores2.reduce((a, b) => a + b, 0) / scores2.length).toFixed(2) : '-';
+                        
+                        html += `
+                            <tr>
+                                <td rowspan="2" style="font-size: 0.9em;">${item}</td>
+                                <td style="font-size: 0.85em;">執行力</td>
+                                <td style="font-weight: bold;">${avg1}</td>
+                                <td style="font-size: 0.85em; line-height: 1.6;">${evaluatorScores1.join('<br>') || '<span style="color: #a0aec0;">無評分</span>'}</td>
+                            </tr>
+                            <tr>
+                                <td style="font-size: 0.85em;">錯誤率</td>
+                                <td style="font-weight: bold;">${avg2}</td>
+                                <td style="font-size: 0.85em; line-height: 1.6;">${evaluatorScores2.join('<br>') || '<span style="color: #a0aec0;">無評分</span>'}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table>';
+                }
+                
+                html += '</div>';
+                
+                // 加入說明
+                html += `
+                    <div style="margin-top: 20px; padding: 15px; background: #f7fafc; border-radius: 8px; font-size: 0.9em;">
+                        <strong>📝 說明：</strong><br>
+                        • 主管平均分數：所有主管對該項目的評分平均<br>
+                        • 綠色背景：KPI自動評分欄位<br>
+                        • 如果KPI欄位顯示「-」或「無評分」，表示KPI分數沒有成功回串
+                    </div>
+                `;
+                
+                content.innerHTML = html;
+                
+            } catch (error) {
+                console.error('載入總分報表失敗:', error);
+                content.innerHTML = `<p style="color: #dc2626;">載入失敗: ${error.message}</p>`;
+            }
         };
 
         // 異常分析功能
