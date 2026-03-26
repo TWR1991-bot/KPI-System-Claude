@@ -1151,6 +1151,10 @@
             const currentMonth = new Date().toISOString().slice(0, 7).replace('-', '');
             const employeeListDiv = document.getElementById('employeeList');
             
+            // 檢查當前月份是否已被鎖單
+            const lockDoc = await getDoc(doc(db, 'system_settings', `evaluation_lock_${currentMonth}`));
+            const isLocked = lockDoc.exists() && lockDoc.data().isLocked;
+            
             // 取得所有使用者
             const usersSnapshot = await getDocs(collection(db, 'users'));
             const employees = [];
@@ -1180,13 +1184,14 @@
                 
                 const cardClass = status === 'submitted' ? 'employee-card submitted' : 'employee-card';
                 const statusText = status === 'submitted' ? '✓ 已送出' : '待評分';
+                const lockBadge = isLocked ? '<span style="color: #dc2626; font-weight: bold; margin-left: 8px;">🔒 已鎖單</span>' : '';
                 
                 html += `
                     <div class="${cardClass}" onclick="window.openEvaluation('${employee.userId}', '${status}')">
                         <h3>${employee.name}</h3>
                         <p>${employee.level}</p>
                         <p style="margin-top: 10px; color: ${status === 'submitted' ? '#48bb78' : '#ed8936'};">
-                            ${statusText}
+                            ${statusText}${lockBadge}
                         </p>
                     </div>
                 `;
