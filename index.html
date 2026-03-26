@@ -1354,8 +1354,11 @@
             let monthsToCalculate = [];
             
             if (isQuarterly) {
-                // 季評核：計算本季的3個月KPI平均
-                // 3月季: 1,2,3月; 5月季: 3,4,5月; 9月季: 6,7,8,9月; 12月季: 10,11,12月
+                // 季評核：計算本季的所有月份KPI平均
+                // 3月評核: 1,2,3月
+                // 5月評核: 3,4,5月
+                // 9月評核: 6,7,8,9月
+                // 12月評核: 10,11,12月
                 if (month === 3) {
                     monthsToCalculate = [1, 2, 3];
                 } else if (month === 5) {
@@ -5218,35 +5221,21 @@
                 });
                 
                 // 取得所有KPI檢核的評分
-                const kpiQuery = query(
-                    collection(db, 'kpi_checklists'),
-                    where('employeeId', '==', employeeId),
-                    where('period', '==', period),
-                    where('status', '==', 'submitted')
-                );
-                
-                const kpiSnapshot = await getDocs(kpiQuery);
+                // 如果是季度評核，需要查詢整個季度的所有月份
                 const kpiEvaluations = [];
                 
-                // 計算所有KPI檢核的總分
-                if (!kpiSnapshot.empty && kpiTargetField) {
-                    let totalKpiScore = 0;
-                    const checkers = [];
+                if (kpiTargetField && kpiAutoFillData && kpiAutoFillData.hasKPIData) {
+                    // 使用calculateKPIAutoFill計算出的平均分數
+                    // 這樣可以確保季度評核時會平均所有月份的KPI
+                    const kpiScoreOutOf5 = kpiAutoFillData.scoreOutOf5;
                     
-                    kpiSnapshot.forEach(doc => {
-                        const kpiData = doc.data();
-                        totalKpiScore += (kpiData.totalScore || 0);
-                        checkers.push(kpiData.checkerId || doc.id);
-                    });
-                    
-                    // 先加總再轉換為5分制
-                    const kpiScoreOutOf5 = (totalKpiScore / 100) * 5;
-                    
-                    console.log(`KPI檢核總分: ${totalKpiScore}% (${checkers.length}位檢核人員)`);
+                    console.log(`KPI檢核平均分數: ${kpiAutoFillData.averageScore}% (${kpiAutoFillData.isQuarterly ? '季度' : '月度'}評核)`);
                     console.log(`轉換為5分制: ${kpiScoreOutOf5.toFixed(2)}`);
-                    console.log(`檢核人員: ${checkers.join(', ')}`);
+                    if (kpiAutoFillData.monthlyScores) {
+                        console.log(`月份明細:`, kpiAutoFillData.monthlyScores.map(s => `${s.month}月: ${s.score.toFixed(1)}%`).join(', '));
+                    }
                     
-                    // 將所有KPI檢核合併為一個「系統」評分
+                    // 將KPI檢核結果加入評分列表
                     kpiEvaluations.push({
                         evaluatorId: 'KPI系統',
                         scores: {
@@ -5280,24 +5269,20 @@
                 // 根據範本類型顯示
                 if (template.templateType === 'flat') {
                     // L3、L4 扁平化結構
-                    html += '<table style="width: 100%; margin-top: 20px;"><thead><tr><th>大類</th><th>評分項目</th><th>主管平均分數</th><th>各主管評分</th><th>Debug</th></tr></thead><tbody>';
+                    html += '<table style="width: 100%; margin-top: 20px;"><thead><tr><th>大類</th><th>評分項目</th><th>主管平均分數</th></tr></thead><tbody>';
                     
                     template.categories.forEach((category, catIndex) => {
                         category.items.forEach((item, itemIndex) => {
                             const itemKey = `flat_${catIndex}_${itemIndex}`;
                             const allScores = [];
-                            const evaluatorScores = [];
                             
                             // 收集所有主管對這個項目的評分
                             allEvaluations.forEach(evaluation => {
                                 const scoreValue = evaluation.scores[itemKey];
-                                console.log(`項目 ${itemKey}:`, scoreValue); // Debug
                                 if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
                                     const score = parseFloat(scoreValue);
                                     if (!isNaN(score)) {
                                         allScores.push(score);
-                                        const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
-                                        evaluatorScores.push(`${evaluatorName}: ${score.toFixed(2)}`);
                                     }
                                 }
                             });
@@ -5307,32 +5292,15 @@
                                 ? (allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(2)
                                 : '-';
                             
-                            const evaluatorScoresText = evaluatorScores.length > 0 
-                                ? evaluatorScores.join('<br>') 
-                                : '<span style="color: #a0aec0;">無評分</span>';
-                            
                             // 標記是否為KPI欄位
                             const isKPIField = itemKey === kpiTargetField;
                             const kpiMarker = isKPIField ? ' <span style="color: #059669; font-weight: bold;">📊 KPI自動評分</span>' : '';
-                            
-                            // Debug信息
-                            let debugInfo = `Key: ${itemKey}`;
-                            if (isKPIField) {
-                                debugInfo += '<br>✅ 是KPI欄位';
-                                if (kpiAutoFillData && kpiAutoFillData.hasKPIData) {
-                                    debugInfo += `<br>KPI分數: ${kpiAutoFillData.averageScore}% → ${kpiAutoFillData.scoreOutOf5.toFixed(2)}分`;
-                                } else {
-                                    debugInfo += '<br>❌ KPI資料不存在';
-                                }
-                            }
                             
                             html += `
                                 <tr style="${isKPIField ? 'background: #dcfce7;' : ''}">
                                     <td style="font-size: 0.9em;">${category.name}</td>
                                     <td style="font-size: 0.9em;">${item}${kpiMarker}</td>
                                     <td style="font-weight: bold; font-size: 1.1em; ${isKPIField ? 'color: #059669;' : ''}">${avgScore}</td>
-                                    <td style="font-size: 0.85em; line-height: 1.6;">${evaluatorScoresText}</td>
-                                    <td style="font-size: 0.75em; color: #718096;">${debugInfo}</td>
                                 </tr>
                             `;
                         });
@@ -5342,7 +5310,7 @@
                 } else {
                     // L1、L2 結構化
                     html += '<h4 style="color: #1E88E5; margin-top: 20px;">工作表現</h4>';
-                    html += '<table style="width: 100%;"><thead><tr><th>大類</th><th>評分項目</th><th>欄位</th><th>主管平均分數</th><th>各主管評分</th></tr></thead><tbody>';
+                    html += '<table style="width: 100%;"><thead><tr><th>大類</th><th>評分項目</th><th>欄位</th><th>主管平均分數</th></tr></thead><tbody>';
                     
                     template.workPerformance.forEach((category, catIndex) => {
                         category.items.forEach((item, itemIndex) => {
@@ -5350,30 +5318,25 @@
                             
                             // 執行力
                             const scores1 = [];
-                            const evaluatorScores1 = [];
                             allEvaluations.forEach(evaluation => {
                                 const scoreValue = evaluation.scores[`${itemKey}_1`];
                                 if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
                                     const score = parseFloat(scoreValue);
                                     if (!isNaN(score)) {
                                         scores1.push(score);
-                                        const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
-                                        evaluatorScores1.push(`${evaluatorName}: ${score.toFixed(2)}`);
                                     }
                                 }
                             });
                             
                             // 錯誤率
                             const scores2 = [];
-                            const evaluatorScores2 = [];
+                            
                             allEvaluations.forEach(evaluation => {
                                 const scoreValue = evaluation.scores[`${itemKey}_2`];
                                 if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
                                     const score = parseFloat(scoreValue);
                                     if (!isNaN(score)) {
                                         scores2.push(score);
-                                        const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
-                                        evaluatorScores2.push(`${evaluatorName}: ${score.toFixed(2)}`);
                                     }
                                 }
                             });
@@ -5387,12 +5350,12 @@
                                     <td rowspan="2" style="font-size: 0.9em;">${item}</td>
                                     <td style="font-size: 0.85em;">執行力</td>
                                     <td style="font-weight: bold;">${avg1}</td>
-                                    <td style="font-size: 0.85em; line-height: 1.6;">${evaluatorScores1.join('<br>') || '<span style="color: #a0aec0;">無評分</span>'}</td>
+                                    
                                 </tr>
                                 <tr>
                                     <td style="font-size: 0.85em;">錯誤率</td>
                                     <td style="font-weight: bold;">${avg2}</td>
-                                    <td style="font-size: 0.85em; line-height: 1.6;">${evaluatorScores2.join('<br>') || '<span style="color: #a0aec0;">無評分</span>'}</td>
+                                    
                                 </tr>
                             `;
                         });
@@ -5402,7 +5365,7 @@
                     
                     // 綜合表現
                     html += '<h4 style="color: #1E88E5; margin-top: 20px;">綜合表現</h4>';
-                    html += '<table style="width: 100%;"><thead><tr><th>大類</th><th>評分項目</th><th>欄位</th><th>主管平均分數</th><th>各主管評分</th></tr></thead><tbody>';
+                    html += '<table style="width: 100%;"><thead><tr><th>大類</th><th>評分項目</th><th>欄位</th><th>主管平均分數</th></tr></thead><tbody>';
                     
                     template.comprehensivePerformance.forEach((category, catIndex) => {
                         category.items.forEach((item, itemIndex) => {
@@ -5410,30 +5373,25 @@
                             
                             // 執行力
                             const scores1 = [];
-                            const evaluatorScores1 = [];
                             allEvaluations.forEach(evaluation => {
                                 const scoreValue = evaluation.scores[`${itemKey}_1`];
                                 if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
                                     const score = parseFloat(scoreValue);
                                     if (!isNaN(score)) {
                                         scores1.push(score);
-                                        const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
-                                        evaluatorScores1.push(`${evaluatorName}: ${score.toFixed(2)}`);
                                     }
                                 }
                             });
                             
                             // 錯誤率
                             const scores2 = [];
-                            const evaluatorScores2 = [];
+                            
                             allEvaluations.forEach(evaluation => {
                                 const scoreValue = evaluation.scores[`${itemKey}_2`];
                                 if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
                                     const score = parseFloat(scoreValue);
                                     if (!isNaN(score)) {
                                         scores2.push(score);
-                                        const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
-                                        evaluatorScores2.push(`${evaluatorName}: ${score.toFixed(2)}`);
                                     }
                                 }
                             });
@@ -5447,12 +5405,12 @@
                                     <td rowspan="2" style="font-size: 0.9em;">${item}</td>
                                     <td style="font-size: 0.85em;">執行力</td>
                                     <td style="font-weight: bold;">${avg1}</td>
-                                    <td style="font-size: 0.85em; line-height: 1.6;">${evaluatorScores1.join('<br>') || '<span style="color: #a0aec0;">無評分</span>'}</td>
+                                    
                                 </tr>
                                 <tr>
                                     <td style="font-size: 0.85em;">錯誤率</td>
                                     <td style="font-weight: bold;">${avg2}</td>
-                                    <td style="font-size: 0.85em; line-height: 1.6;">${evaluatorScores2.join('<br>') || '<span style="color: #a0aec0;">無評分</span>'}</td>
+                                    
                                 </tr>
                             `;
                         });
@@ -5462,37 +5420,32 @@
                     
                     // 個人學習
                     html += '<h4 style="color: #1E88E5; margin-top: 20px;">個人學習</h4>';
-                    html += '<table style="width: 100%;"><thead><tr><th>評分項目</th><th>欄位</th><th>主管平均分數</th><th>各主管評分</th></tr></thead><tbody>';
+                    html += '<table style="width: 100%;"><thead><tr><th>評分項目</th><th>欄位</th><th>主管平均分數</th></tr></thead><tbody>';
                     
                     template.personalLearning.items.forEach((item, itemIndex) => {
                         const itemKey = `learn_${itemIndex}`;
                         
                         // 執行力
                         const scores1 = [];
-                        const evaluatorScores1 = [];
                         allEvaluations.forEach(evaluation => {
-                            const scoreValue = evaluation.scores[`${itemKey}_1`];
-                            if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
-                                const score = parseFloat(scoreValue);
-                                if (!isNaN(score)) {
-                                    scores1.push(score);
-                                    const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
-                                    evaluatorScores1.push(`${evaluatorName}: ${score.toFixed(2)}`);
+                                const scoreValue = evaluation.scores[`${itemKey}_1`];
+                                if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
+                                    const score = parseFloat(scoreValue);
+                                    if (!isNaN(score)) {
+                                        scores1.push(score);
+                                    }
                                 }
-                            }
-                        });
+                            });
                         
                         // 錯誤率
                         const scores2 = [];
-                        const evaluatorScores2 = [];
+                        
                         allEvaluations.forEach(evaluation => {
                             const scoreValue = evaluation.scores[`${itemKey}_2`];
                             if (scoreValue !== undefined && scoreValue !== null && scoreValue !== '') {
                                 const score = parseFloat(scoreValue);
                                 if (!isNaN(score)) {
                                     scores2.push(score);
-                                    const evaluatorName = evaluatorNames[evaluation.evaluatorId] || evaluation.evaluatorId;
-                                    evaluatorScores2.push(`${evaluatorName}: ${score.toFixed(2)}`);
                                 }
                             }
                         });
@@ -5505,12 +5458,12 @@
                                 <td rowspan="2" style="font-size: 0.9em;">${item}</td>
                                 <td style="font-size: 0.85em;">執行力</td>
                                 <td style="font-weight: bold;">${avg1}</td>
-                                <td style="font-size: 0.85em; line-height: 1.6;">${evaluatorScores1.join('<br>') || '<span style="color: #a0aec0;">無評分</span>'}</td>
+                                
                             </tr>
                             <tr>
                                 <td style="font-size: 0.85em;">錯誤率</td>
                                 <td style="font-weight: bold;">${avg2}</td>
-                                <td style="font-size: 0.85em; line-height: 1.6;">${evaluatorScores2.join('<br>') || '<span style="color: #a0aec0;">無評分</span>'}</td>
+                                
                             </tr>
                         `;
                     });
