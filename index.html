@@ -1851,12 +1851,14 @@
                                                 <li>每個大類可設定多個評分項目</li>
                                                 <li>每個大類可設定<strong>佔比百分比</strong>（如：工作表現40%、綜合表現20%等）</li>
                                                 <li>所有佔比設定都是<strong>彈性可調整</strong>的，非固定值</li>
+                                                <li>每個小項目分數為該大類占比平均計分</li>
+                                                <li>L1、L2職等裡工作表現所涵蓋的大類項目，若當月無主管給分，該大類分數占比自動平均分攤到工作表現的其他大類項目裡</li>
                                             </ul>
                                         </li>
                                         <li><strong>欄位設定</strong>：
                                             <ul style="margin-top: 10px;">
-                                                <li>每個評分項目可設定為<strong>一般欄位</strong>或<strong>KPI欄位</strong></li>
-                                                <li>一般欄位：主管直接評分（1-5分）</li>
+                                                <li>每個項目都可被指定為<strong>KPI欄位</strong>（由人員管理地方進行設定）</li>
+                                                <li>一般欄位：主管直接評分（<strong>0～5分</strong>）</li>
                                                 <li><strong>KPI欄位</strong>：該欄位的分數會自動從KPI檢核結果<strong>回串</strong></li>
                                                 <li>KPI欄位在主管評分時會顯示為「由KPI檢核提供」</li>
                                             </ul>
@@ -1871,7 +1873,7 @@
                                         </li>
                                         <li><strong>總分計算</strong>：總分 = 所有大類分數相加（包含從KPI回串的分數）
                                             <ul style="margin-top: 10px;">
-                                                <li>總分<strong>可能超過100分</strong>，因為KPI是獨立計算後再加入</li>
+                                                <li><strong>滿分為100分</strong></li>
                                                 <li>每個大類分數 = 該大類的平均分 × 該大類佔比</li>
                                                 <li>如果有KPI欄位，該欄位會使用從KPI檢核回串的分數</li>
                                             </ul>
@@ -1887,11 +1889,11 @@
                                         📅 評核頻率設定
                                     </h3>
                                     <ul style="line-height: 2; color: #2d3748;">
-                                        <li>評核頻率<strong>依員工個別設定</strong>，與職等無關</li>
+                                        <li>評核頻率<strong>L1每月評核，L2~L4每季評核一次</strong>，可能依員工工作表現調整為每月評核</li>
                                         <li>每位員工可設定為：
                                             <ul style="margin-top: 10px;">
                                                 <li><strong>月評核</strong>：每月進行評核（1, 2, 3, ..., 12月）</li>
-                                                <li><strong>季評核</strong>：每季進行評核（3, 6, 9, 12月）</li>
+                                                <li><strong>季評核</strong>：配合三節獎金發放，評核月份為<strong>3, 5, 9, 12月</strong></li>
                                             </ul>
                                         </li>
                                         <li>在「人員管理」中可為每位員工設定評核頻率</li>
@@ -1909,7 +1911,7 @@
                                         <li>在「評分進度追蹤」中可以<strong>勾選checkbox</strong>來鎖定/解鎖特定月份</li>
                                         <li>鎖定後效果：
                                             <ul style="margin-top: 10px;">
-                                                <li>主管<strong>無法開始新的評分</strong></li>
+                                                <li>主管<strong>無法再進行評分</strong></li>
                                                 <li>未送出的<strong>草稿無法編輯</strong></li>
                                                 <li>已送出的評分<strong>不受影響</strong></li>
                                             </ul>
@@ -1990,7 +1992,7 @@
                                         </li>
                                         <li>KPI評核可以<strong>獨立退單</strong>，不影響一般評核</li>
                                         <li>只有<strong>該KPI範本的指定檢核人</strong>可以填寫</li>
-                                        <li><strong>重要</strong>：因為KPI是獨立計算後加入，<strong>總分可能超過100分</strong></li>
+                                        <li><strong>重要</strong>：KPI是獨立計算後串回一般評核欄位，雖可獨立看到KPI檢核分數，但總分計算是依據KPI在一般評核占比賦予分數，故<strong>總分滿分還是100分</strong></li>
                                     </ul>
                                 </section>
                                 
@@ -2025,7 +2027,7 @@
                                         <li>圖表會依據員工的<strong>評核頻率</strong>顯示對應月份：
                                             <ul style="margin-top: 10px;">
                                                 <li>月評核：顯示全部12個月</li>
-                                                <li>季評核：只顯示3, 6, 9, 12月</li>
+                                                <li>季評核：只顯示<strong>3, 5, 9, 12月</strong></li>
                                             </ul>
                                         </li>
                                         <li>如果同職等有多種評核頻率，<strong>以月評核為準</strong>（顯示全部12月）</li>
